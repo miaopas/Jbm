@@ -1,0 +1,429 @@
+#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#Points are processed before lines
+#=======================================================================================
+#Possible style-options for mkgmap build argument:  --style-option=
+#			jbmoptionpersonal=true				Adds via ferrata and ruins
+#          jbmoptionbicycle=true					Adds additional collored overlays for bicycle routes and node network points
+#          jbmoptionhiking=true					Adds additional collored overlays for hiking routes and node network points
+#			jbmoptionfixme=true					Adds symbols for osm fixme requests
+#			jbmoptiondebug=true					Includes extra debugging echo's to log
+#=======================================================================================
+#Temporary debug en testing
+#=======================================================================================
+mkgmap:option:jbmoptiondebug = * {set dbglevel = '$(mkgmap:option:jbmoptiondebug)'}
+dbgtrace = true {echotags 'debug - relations - body start'}
+#=======================================================================================
+
+#Boundary names separated by slashes
+#=======================================================================================
+#This does not seem to work ? Wether i use pre-processed bounds or not i never get an admin_border in my lines file with jbm_boundary_from_relation = true
+#(type = boundary | type = multipolygon) & boundary = administrative & name = *
+#{ apply
+#  {
+#	set jbm_boundary_from_relation = true
+#    set mkgmap:boundary_name = '$(mkgmap:boundary_name)/${name}' | '${name}';
+#  }
+#}
+
+#20200620 At charles the Gaulle airport, the multipolygon creator does something i don't understand, generating duplicate terminals where  half of them are missing tags
+#https://www.openstreetmap.org/#map=16/49.0123/2.5588
+#Even the main tag aeroway = terminal is missing. Probably because of relation in relation? By adding re-adding the terminal tag it can be catched again in the polygons file.
+#Seems strange: this would also happen in other situations and I never encountered such. Other thought is that a working multipolygon probably gets filled where this should not .
+#Wait and reverse if it causes too many problems
+type = multipolygon  & aeroway=terminal
+{ apply { set aeroway = terminal} }
+
+#Some countries (France) have the population specified at admin_level relation with the city as admin_centre
+#=======================================================================================
+type = boundary & boundary = administrative & admin_level = 2 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel2 = '${population}'}}
+type = boundary & boundary = administrative & admin_level = 3 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel3 = '${population}'}}
+type = boundary & boundary = administrative & admin_level = 4 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel4 = '${population}'}}
+type = boundary & boundary = administrative & admin_level = 5 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel5 = '${population}'}}
+type = boundary & boundary = administrative & admin_level = 6 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel6 = '${population}'}}
+type = boundary & boundary = administrative & admin_level = 7 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel7 = '${population}'}}
+type = boundary & boundary = administrative & admin_level = 8 & population = *
+{apply role=admin_centre {set jbm_population_adminlevel8 = '${population}'}}
+
+#Multipolygon  outlines
+#=======================================================================================
+type = multipolygon & (tourism = theme_park)
+{ apply role=inner { set theme_park_inner = true } }
+type = multipolygon & (tourism = theme_park)
+{ apply role=outer { set theme_park_outer = true } }
+
+type = multipolygon & leisure ~ '(track|pitch|ice-rink)'
+{ apply role=inner { set pitch_inner = true } }
+type = multipolygon & leisure ~ '(track|pitch|ice-rink)'
+{ apply role=outer{ set pitch_outer = true } }
+
+type = multipolygon & (leisure ~ '(sports_centre|stadium|playground|recreation_ground|waterpark)' | landuse = recreation_ground)
+{ apply role=inner {set sports_centre_inner = true } }
+type = multipolygon & (leisure ~ '(sports_centre|stadium|playground|recreation_ground|waterpark)' | landuse = recreation_ground)
+{ apply role=outer{ set sports_centre_outer = true } }
+
+type = multipolygon & (boundary ~ '(national_park|protected_area)' | leisure = nature_reserve)
+{ apply role=inner{ set nature_reserve_inner = true } }
+type = multipolygon & (boundary ~ '(national_park|protected_area)' | leisure = nature_reserve)
+{ apply role=outer{ set nature_reserve_outer = true } }
+
+type = multipolygon & highway = pedestrian
+{ apply role=inner{ set highway_pedestrian_inner = true } }
+type = multipolygon & highway = pedestrian
+{ apply role=outer{ set highway_pedestrian_outer = true } }
+
+type = multipolygon & (landuse = forest | natural = wood)
+	{
+		apply
+		{
+			set jbm_forest_from_relation = true;
+			set jbmname = '${name}';
+		}
+}
+
+#Walking routes (Used for overlays and displaying these highways on earlier zoomlevels
+#=======================================================================================
+#network = lwn		local walking network,
+#network = rwn		regional walking network
+#network = nwn	national walking network
+#network = iwn		international walking network
+
+#type = route & (route = foot | route = hiking | route = bicycle) & network ~ '(.wn|.cn)'
+#{apply role = transfer {set jbm_route_transfer = true}}
+
+type = route & (route = foot | route = hiking) & network = lwn
+	{
+		apply {
+			set jbm_route_network_lwn = true;
+			set jbm_route_name_lwn = '$(jbm_route_name_lwn)/${name}' | '${name}';
+			set jbm_route_ref_lwn = '$(jbm_route_ref_lwn)/${ref}' | '${ref}';
+			set jbm_route_note_lwn = '${note}';
+			set jbm_route_hiking = '${network}';
+			set jbm_route_network_type_lwn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmfoot = yes
+	}
+} 
+
+type = route & (route = foot | route = hiking) & network = rwn
+	{
+		apply {
+			set jbm_route_network_rwn = true;
+			set jbm_route_name_rwn = '$(jbm_route_name_rwn)/${name}' | '${name}';
+			set jbm_route_ref_rwn = '$(jbm_route_ref_rwn)/${ref}' | '${ref}';
+			set jbm_route_note_rwn = '${note}';
+			set jbm_route_hiking = '${network}';
+			set jbm_route_network_type_rwn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmfoot = yes
+	}
+} 
+
+type = route &  (route = foot | route = hiking) & network = nwn
+	{
+		apply {
+			set jbm_route_network_nwn = true;
+			set jbm_route_name_nwn = '$(jbm_route_name_nwn)/${name}' | '${name}';
+			set jbm_route_ref_nwn = '$(jbm_route_ref_nwn)/${ref}' | '${ref}';
+			set jbm_route_note_nwn = '${note}';
+			set jbm_route_hiking = '${network}';
+			set jbm_route_network_type_nwn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmfoot = yes
+	}
+} 
+
+type = route & (route = foot | route = hiking) & network = iwn
+	{
+		apply {
+			set jbm_route_network_iwn = true;
+			set jbm_route_name_iwn = '$(jbm_route_name_iwn)/${name}' | '${name}';
+			set jbm_route_ref_iwn = '$(jbm_route_ref_iwn)/${ref}' | '${ref}';
+			set jbm_route_note_iwn = '${note}';
+			set jbm_route_hiking = '${network}';
+			set jbm_route_network_type_iwn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmfoot = yes
+	}
+} 
+
+type = waterway & length() >= 0
+	{
+		apply role = main_stream
+		{
+			#Setting value to '${mkgmap:cache_length}' only works if used with curly brackets instead of round brackets
+			set jbm_waterway_length = '${mkgmap:cache_length}';
+			set jbm_waterway_distance = '${distance|conv:"km=>m"}' | '${length|conv:"km=>m"}';
+			set jbm_waterway_from_relation = true;
+		}
+} 
+
+#Cycling routes (Used for overlays and displaying these highways on earlier zoomlevels
+#=======================================================================================
+#network = ucn		unknown cycling network (ucn = personal jbm code, not an osm code)
+#network = lcn		local cycling network
+#network = rcn		regional cycling network
+#network = ncn		national cycling network
+#network = icn		international cycling network
+
+#Map the cycle routes to the lcn, rcn and ncn tags		https://en.eurovelo.com
+if (type = route & route = bicycle) then
+	name ~ '([e|E]uro\s[r|R]oute|[e|E]uro[v|V]elo|[e|E]uro\s[v|V]elo).*' {set network = icn}
+	name ~ '(Euro Route R1).*' 							{set name = "Euro Route R1"}
+	name ~ '(EuroVelo 1 - part).*' 					{set name = "Atlantic Coast Route"}
+	name ~ '(EuroVelo 2).*' 								{set name = "Capitals Route"}
+	name ~ '(EuroVelo 3).*' 								{set name = "Pilgrims Route"}
+	name ~ '(EuroVelo 4).*' 								{set name = "Central Europe Route"}
+	name ~ '(EuroVelo 5).*' 								{set name = "Via Romea (Francigena)"}
+	name ~ '(EuroVelo 6).*' 								{set name = "Atlantic-Black Sea"}
+	name ~ '(EuroVelo 7).*' 								{set name = "Sun Route"}
+	name ~ '(EuroVelo 8).*' 								{set name = "Mediterranean Route"}
+	name ~ '(EuroVelo 9).*' 								{set name = "Baltic-Adriatic"}
+	name ~ '(EuroVelo 10).*' 							{set name = "Baltic Sea Route"}
+	name ~ '(EuroVelo 11).*' 							{set name = "East Europe Route"}
+	name ~ '(EuroVelo 12).*' 							{set name = "North Sea Route"}
+	name ~ '(EuroVelo 13).*' 							{set name = "Iron Curtain Trail"}
+	name ~ '(EuroVelo 14).*' 							{set name = "Waters of Central Europe"}
+	name ~ '(EuroVelo 15).*' 							{set name = "Rhine Route"}
+	#name ~ '(EuroVelo 16).*' 							{set name = "Bestaat niet"}
+	name ~ '(EuroVelo 17).*' 							{set name = "Rhone Route"}
+	#name ~ '(EuroVelo 18).*' 							{set name = "Bestaat niet"}
+	name ~ '(EuroVelo 19).*' 							{set name = "Meuse Route"}
+end
+
+#At least in belgium and the netherlands Node networks use the 'note' tag to display the from-to point description, in that case use it as the name
+type = route & route = bicycle & network:type = node_network & note ~ '[^a-zA-Z].*'   {set name='Node network ${note}'}
+
+type = route & route = bicycle & (network != * | !(network ~ '(.cn)')) & state != proposed & mtb != yes & !(mtb:type = *)
+	{
+		apply {
+			set jbm_route_network_ucn = true;
+			set jbm_route_name_ucn = '$(jbm_route_name_ucn)/${name}' | '${name}';
+			set jbm_route_ref_ucn = '$(jbm_route_ref_ucn)/${ref}' | '${ref}';
+			set jbm_route_note_ucn = '${note}';
+			set jbm_route_bicycle = ucn;
+			set jbm_route_network_type_ucn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmbicycle = yes
+	}
+} 
+
+(type = route | type = network) & route = bicycle & network = lcn & state != proposed
+	{
+		apply {
+			set jbm_route_network_lcn = true;
+			set jbm_route_name_lcn = '$(jbm_route_name_lcn)/${name}' | '${name}';
+			set jbm_route_ref_lcn = '$(jbm_route_ref_lcn)/${ref}' | '${ref}';
+			set jbm_route_note_lcn = '${note}';
+			set jbm_route_bicycle = '${network}';
+			set jbm_route_network_type_lcn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmbicycle = yes
+	}
+} 
+
+(type = route | type = network) & route = bicycle & network = rcn & state != proposed
+	{
+		apply {
+			set jbm_route_network_rcn = true;
+			set jbm_route_name_rcn = '$(jbm_route_name_rcn)/${name}' | '${name}';
+			set jbm_route_ref_rcn = '$(jbm_route_ref_rcn)/${ref}' | '${ref}';
+			set jbm_route_note_rcn = '${note}';
+			set jbm_route_bicycle = '${network}';
+			set jbm_route_network_type_rcn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmbicycle = yes
+	}
+} 
+
+(type = route | type = network) & route = bicycle & network = ncn & state != proposed
+	{
+		apply {
+			set jbm_route_network_ncn = true;
+			set jbm_route_name_ncn = '$(jbm_route_name_ncn)/${name}' | '${name}';
+			set jbm_route_ref_ncn = '$(jbm_route_ref_ncn)/${ref}' | '${ref}';
+			set jbm_route_note_ncn = '${note}';
+			set jbm_route_bicycle = '${network}';
+			set jbm_route_network_type_ncn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmbicycle = yes
+	}
+} 
+
+(type = route | type = network) & route = bicycle & network = icn & state != proposed
+	{
+		apply {
+			set jbm_route_network_icn = true;
+			set jbm_route_name_icn = '$(jbm_route_name_icn)/${name}' | '${name}';
+			set jbm_route_ref_icn = '$(jbm_route_ref_icn)/${ref}' | '${ref}';
+			set jbm_route_note_icn = '${note}';
+			set jbm_route_bicycle = '${network}';
+			set jbm_route_network_type_icn = '${network:type}';
+			set jbm_route_from_relation = true;
+			add jbmbicycle = yes
+	}
+} 
+
+type = route & route = mtb & state != proposed
+	{
+		apply {
+			set jbm_route_distance = '${distance}';
+			set jbm_route_name_mtb = '${name}';
+			set jbm_route_mtb = true;
+			set jbm_route_from_relation = true;
+			set route_ref = '${ref}';
+	}
+} 
+
+(type = route & route = ferry) & (ref = * | name = *) & state != proposed
+{
+	#if ref is missing, use name
+	add ref='${name}'; 
+	# Append the ref of the route relation to the route_ref attribute of
+	# the member nodes recursively (even to members of subrelations).
+	# Stops can be grouped within subrelations comprising the vehicle
+	# stop node and the passenger wait node.
+	apply { 
+		# node role ~ '(start_|end_)stop'
+		set route_ref='$(route_ref);${ref|not-contained:;:route_ref}' | '$(route_ref)' | '${ref}';
+		# In route relations, stops may be defined as relations that group
+		# the passenger wait area and the vehicle stop area.  If such
+		# subrelations exist, copy the ref to them too.
+		set mkgmap:relref='${ref}';
+
+		apply role=passengers {
+			set route_ref='$(route_ref),${mkgmap:relref}' | '${mkgmap:relref}';
+			set jbm_route_from_relation = true;
+		}
+		delete mkgmap:relref;
+  }
+  # We could want to copy the route relation name to unnamed route=ferry ways.
+  # apply way { add name='${name}' }
+}
+
+#Public transport copied from default style 20200512	:  ! Added:  set jbm_route_from_relation = true, and removed ferry
+#=======================================================================================
+# Public transportation routes.
+# We could want to sort the matching relations by ref first.
+type = route & (route = bus | route = trolleybus | route = subway | route = train | route = tram)
+& (ref = * | name = *)
+{
+	add ref='${name}'; # if ref is missing, use name
+	# Append the ref of the route relation to the route_ref attribute of
+	# the member nodes recursively (even to members of subrelations).
+	# Stops can be grouped within subrelations comprising the vehicle
+	# stop node and the passenger wait node.
+	apply {
+		# node role ~ '(start_|end_)stop'
+		set route_ref='$(route_ref);${ref|not-contained:;:route_ref}' | '$(route_ref)' | '${ref}';
+		# In route relations, stops may be defined as relations that group
+		# the passenger wait area and the vehicle stop area.  If such
+		# subrelations exist, copy the ref to them too.
+		set mkgmap:relref='${ref}';
+
+		apply role=passengers {
+			set route_ref='$(route_ref),${mkgmap:relref}' | '${mkgmap:relref}';
+			set jbm_route_from_relation = true;
+			add jbmbus = yes
+		}
+		delete mkgmap:relref;
+	}
+}
+
+# European E-Road network
+route=road & network=e-road {
+	apply {
+		add ref='${ref}';
+		add int_ref='${int_ref}';
+		add network='e-road';
+        add mkgmap:fast_road=yes;
+	}
+}
+
+#USA road network
+type=route & route=road & historic!=yes & network=US:I
+{
+    apply {
+        set mkgmap:us_interstate='$(mkgmap:us_interstate);${ref|not-contained:;:mkgmap:us_interstate}' | '$(mkgmap:us_interstate)' | '${ref}';
+        add network='US:I';
+        add mkgmap:fast_road=yes;
+    }
+}
+type=route & route=road & historic!=yes & network~'US:I:.*'
+{
+    apply {
+        add network='US:I';
+        add mkgmap:fast_road=yes;
+    }
+}
+type=route & route=road & historic!=yes & network=US:US
+{
+    apply {
+        set mkgmap:us_usroute='$(mkgmap:us_usroute);${ref|not-contained:;:mkgmap:us_usroute}' | '$(mkgmap:us_usroute)' | '${ref}';
+        add network='US:US';
+        add mkgmap:fast_road=yes;
+    }
+}
+type=route & route=road & historic !=yes & network~'US:US:.*'
+{
+    apply {
+        add network='US:US';
+        add mkgmap:fast_road=yes;
+    }
+}
+type=route & route=road & historic !=yes & network~'US:.*' & !(network=US:I | network=US:US | network~'US:.*:.*')
+{
+    apply {
+        add mkgmap:us_state='$(mkgmap:us_state);${ref|not-contained:;:mkgmap:us_state}' | '$(mkgmap:us_state)' | '${ref}';
+        add network='${network}';
+    }
+}
+
+#Trans African Highway
+type=route & route=road & historic!=yes & (network~'TAH.*' | ref~'TAH.*' | network~'Trans.African Highway')
+{
+    apply {
+        add network='TAH';
+        add int_ref='${ref}';
+        add mkgmap:fast_road=yes;
+    }
+}
+
+#Asian Highway
+type=route & route=road & historic!=yes & (network=AsianHighway | network=AH)
+{
+    apply {
+        add network='AsianHighway';
+        add int_ref='${ref}';
+        add mkgmap:fast_road=yes;
+    }
+}
+
+#any highway
+type=route & route=road & historic != yes & ref = *
+{
+    apply {
+        add ref='${ref}';
+    }
+}
+
+#Debug logging
+#===================================================================================
+dbglevel = custom 																																													{set jbmecho = true}
+dbglevel = error 		& (dbgmsgcustom = * | dbgmsgerror = *)																											{set jbmecho = true}
+dbglevel = warning	& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = *)																			{set jbmecho = true}
+dbglevel = info		& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *)											{set jbmecho = true}
+dbglevel = verbose	& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *|  dbgmsgverbose = *)			{set jbmecho = true}
+jbmecho = true {set jbmdbgmsg = '$(dbgmsgcustom)' | '$(dbgmsgerror)' | '$(dbgmsgwarning)' | '$(dbgmsginfo)' | '$(dbgmsgverbose)'}
+jbmecho = true {set dbgcategory = '$(dbgcategory)' | '$(dbglevel)' ; delete jbmecho ; echotags '$(dbgcategory)'}
+dbgtrace = true {echotags 'debug - trace - relation - end'}
+

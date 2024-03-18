@@ -1,0 +1,899 @@
+#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#Lines are processed before polygons
+#=======================================================================================
+#Possible style-options for mkgmap build argument:  --style-option=
+#			jbmoptionpersonal=true				Adds via ferrata and ruins
+#          jbmoptionbicycle=true					Adds additional collored overlays for bicycle routes and node network points
+#          jbmoptionhiking=true					Adds additional collored overlays for hiking routes and node network points
+#			jbmoptionfixme=true					Adds symbols for osm fixme requests
+#			jbmoptiondebug=true					Includes extra debugging echo's to log
+#=======================================================================================
+#Temporary debug en testing
+#=======================================================================================
+mkgmap:option:jbmoptiondebug = * {set dbglevel = '$(mkgmap:option:jbmoptiondebug)'}
+dbgtrace = true {echotags 'debug - lines - body start'}
+#=======================================================================================
+
+#Temporary debug en testing
+#=======================================================================================
+#highway = * & osmid() =  303706242  	{set dbglevel = custom}
+#highway = * {set aa1 = '$(jbmroutable)' | empty}
+#highway = * {set aa2 = '$(mkgmap:cache_area_size)' | empty}
+#highway = * {set aa3 = '$(mkgmap:stylefilter)' | empty}
+#highway = * & is_closed() = true  {set aa4 = 'closed = true'}
+#highway = * {set aa5 = '$(mkgmap:mp_created)' | empty}
+#highway ~ '(footway|path)' & leisure = track {set aa6 = "ja"}
+#dbglevel = custom {set line9 = 'jbmareasize=$(jbmareasize)' | empty}
+#highway = * & osmid() =  371460837  	{set dbglevel = custom}
+#highway = * & oneway = yes & !(oneway:bicycle = no | bicycle = use_sidepath) {add dbgcategory = onewaytest ; set dbglevel = custom}
+#name = Uilenburgstraatje 	{set dbglevel = custom}
+#name = 'Grindweg naar Hontenisse' {set dbglevel = custom}
+
+#=======================================================================================
+#BEGIN
+#=======================================================================================
+#By calculating the areasize we trigger the calculation of mkgmap:cache_area_size, which then can be used for further processing
+(landuse = * | natural = * | amenity = * | man_made = * | military = * | leisure = * | tourism = * | boundary = * | power = * | contour = elevation)  & area_size() > 0				{set jbmareasize = 24}
+
+#This sections must be in both lines and polygons in order to work properly
+mkgmap:cache_area_size >= 0					{set jbmareasize = 24 ; set jbmfontsize = small}
+mkgmap:cache_area_size >= 2500				{set jbmareasize = 22}
+mkgmap:cache_area_size >= 25000			{set jbmareasize = 20}
+mkgmap:cache_area_size >= 125000			{set jbmareasize = 18 ; set jbmfontsize = normal}
+mkgmap:cache_area_size >= 2000000		{set jbmareasize = 16 ; set jbmfontsize = large}
+mkgmap:cache_area_size >= 25000000		{set jbmareasize = 14}
+
+#Bicycle routes overlays - See relations file for preperations
+#=======================================================================================
+if (mkgmap:option:jbmoptionbicycle = true) then
+	#Version 20200526 > copy to separate style if altered
+	() jbm_route_network_lcn = true 	{name '+ ${jbm_route_name_lcn}'} 		[0x10c14 resolution 20-20 continue]
+	() jbm_route_network_lcn = true 	{name '+ ${jbm_route_name_lcn}'} 		[0x10c10 resolution 22 continue]
+	
+	() jbm_route_network_rcn = true 	{name '+ ${jbm_route_name_rcn}'} 		[0x10c15 resolution 20-20 continue]
+	() jbm_route_network_rcn = true 	{name '+ ${jbm_route_name_rcn}'} 		[0x10c11 resolution 22 continue]
+	
+	() jbm_route_network_ncn = true	{name '+ ${jbm_route_name_ncn}'} 		[0x10c18 resolution 16-17 continue]
+	() jbm_route_network_ncn = true	{name '+ ${jbm_route_name_ncn}'} 		[0x10c16 resolution 18-20 continue]
+	() jbm_route_network_ncn = true	{name '+ ${jbm_route_name_ncn}'} 		[0x10c12 resolution 22 continue]
+	
+	() jbm_route_network_icn = true 	{name '+ ${jbm_route_name_icn}'} 		[0x10c19 resolution 15-17 continue]
+	() jbm_route_network_icn = true 	{name '+ ${jbm_route_name_icn}'} 		[0x10c17 resolution 18-20 continue]
+	() jbm_route_network_icn = true 	{name '+ ${jbm_route_name_icn}'} 		[0x10c13 resolution 22 continue]
+end
+if (mkgmap:option:jbmoptionhiking = true) then
+	#Version 20200526 > copy to separate style if altered
+	() jbm_route_network_lwn = true 	{name '+ ${jbm_route_name_lwn}'} 		[0x10c14 resolution 20-20 continue]
+	() jbm_route_network_lwn = true 	{name '+ ${jbm_route_name_lwn}'} 		[0x10c10 resolution 22 continue]
+	
+	() jbm_route_network_rwn = true 	{name '+ ${jbm_route_name_rwn}'} 		[0x10c15 resolution 20-20 continue]
+	() jbm_route_network_rwn = true 	{name '+ ${jbm_route_name_rwn}'} 		[0x10c11 resolution 22 continue]
+	
+	() jbm_route_network_nwn = true	{name '+ ${jbm_route_name_nwn}'} 		[0x10c18 resolution 16-17 continue]
+	() jbm_route_network_nwn = true	{name '+ ${jbm_route_name_nwn}'} 		[0x10c16 resolution 18-20 continue]
+	() jbm_route_network_nwn = true	{name '+ ${jbm_route_name_nwn}'} 		[0x10c12 resolution 22 continue]
+	
+	() jbm_route_network_iwn = true 	{name '+ ${jbm_route_name_iwn}'} 		[0x10c19 resolution 15-17 continue]
+	() jbm_route_network_iwn = true 	{name '+ ${jbm_route_name_iwn}'} 		[0x10c17 resolution 18-20 continue]
+	() jbm_route_network_iwn = true 	{name '+ ${jbm_route_name_iwn}'} 		[0x10c13 resolution 22 continue]
+end
+
+#Added via_ferrata for personal interest, but first backup original highway value
+#=======================================================================================
+highway = *  {set jbmhighway = '$(highway)'}			#Backup in case it is changed halfway, we need the original values for unit testing
+(highway = path | highway = footway) & via_ferrata = yes  {set highway = via_ferrata}
+(highway = via_ferrata | sport = via_ferrata) & via_ferrata_scale = *  {name '${name} (Via ferrata scale ${via_ferrata_scale} out of 6)'}
+(highway = via_ferrata | sport = via_ferrata) & via_ferrata_scale != * {name '${name} (Via ferrata scale unknown)'}
+(highway = via_ferrata | sport = via_ferrata) & mkgmap:option:jbmoptionpersonal = true [0x2e resolution 24]
+
+#Assign the street name for house number search
+#=======================================================================================
+highway = motorway | highway = motorway_link						{add mkgmap:numbers = false}
+highway = service & service = parking_aisle 								{add mkgmap:numbers = false}
+addr:housenumber = * 																{set mkgmap:execute_finalize_rules = true}
+highway = * & name = * 															{set mkgmap:street = '${name}'}
+tunnel = * & tunnel:name = * & name != $tunnel:name 		{name '${name} (${tunnel:name})' | '${tunnel:name} (${ref})' | '${tunnel:name}'} 
+bridge = * & bridge:name = * & name != $bridge:name 	{name '${name} (${bridge:name})' | '${bridge:name} (${ref})' | '${bridge:name}'}
+
+#Political boundries
+#=======================================================================================
+#Most boundary rules are after the highway rules because ways are frequently tagged with both and we want the highway to take priority.
+#Country boundaries are drawn first because we do always want to see them and then continue, so we also display the highway and waterway as well
+boundary = administrative {name '${mkgmap:boundary_name}'}
+boundary = administrative & natural != coastline & admin_level = 2 	[0x1051e resolution 13-14 continue]
+boundary = administrative & natural != coastline & admin_level = 2 	[0x1051f resolution 15-17 continue]
+boundary = administrative & natural != coastline & admin_level = 2 	[0x1e resolution 18-24 continue]
+boundary = national & natural != coastline  											[0x1051e resolution 13-15 continue]
+boundary = national & natural != coastline  											[0x1051f resolution 16-17 continue]
+boundary = national & natural != coastline  											[0x1e resolution 18-24 continue]
+#boundary = political 																			[0x1c resolution 18 continue]
+
+#Start of rules for process-exits and process-destination options
+#=======================================================================================
+#Build dest hint
+mkgmap:dest_hint = *
+  {set dest_hint = '${destination:ref|subst: =>} ${mkgmap:dest_hint|subst:;=> |subst:/=>}' |
+         '${ref|subst: =>} ${mkgmap:dest_hint|subst:;=> |subst:/=>}' |
+         '${mkgmap:dest_hint|subst:;=> |subst:/=>}';
+	}
+
+#Build exit hint
+mkgmap:exit_hint = true
+  {set exit_hint = 'Exit ${mkgmap:exit_hint_ref} ${mkgmap:exit_hint_name}' |
+         'Exit ${mkgmap:exit_hint_ref} ${mkgmap:exit_hint_exit_to}' |
+         'Exit ${mkgmap:exit_hint_exit_to}' |
+         'Exit ${mkgmap:exit_hint_name}' |
+         'Exit ${mkgmap:exit_hint_ref}';
+	}
+
+#Use destination hint and/or exit hint to build name              
+(mkgmap:exit_hint = true | mkgmap:dest_hint = *) {name '${exit_hint} ${dest_hint}' | '${dest_hint}' | '${exit_hint}'}
+
+#Convert generic path to most specific
+#=======================================================================================
+#Be sure no routable lines are used above these sections to avoid gaps or misinterpretation
+highway = path & bicycle = designated & area != yes 				{set highway = cycleway}
+highway = path & horse = designated & area != yes				{set highway = bridleway}
+leisure = track & sport = ski_jumping 										{delete leisure}
+leisure = track & surface = ice_road 											{delete leisure}
+
+#Flag paved / unpaved roads and adjust speedlimits
+#=======================================================================================
+
+highway ~ '(motorway|trunk|primary|secondary|tertiary|unclassified|residential|road|living_street|service|pedestrian).*'	{set jbmmainroad = true}
+highway ~ '(path|footway|bridleway|track|cycleway|steps)' | man_made = pier																	{set jbmminorroad = true}
+highway = *  {set jbmsurface = '$(surface)' | '$(cycleway:surface)' | '$(footway:surface)' }
+
+jbmsurface ~ '.*(paved|asphalt|concrete|paving_stones|cement)'		{set jbmpavedcar = true ; set jbmpavedbike = true ; set jbmpaved = true ; set jbmknownsurface = true}
+jbmsurface ~ '.*(sett|cobblestone|metal|wood).*' 								{set jbmpavedcar = true ; set jbmpavedbike = false ; set jbmpaved = mixed ; set jbmknownsurface = true}
+jbmsurface ~ '(unpaved|compacted|pebblestone|ground|dirt|earth|mud|woodchips|soil|trail|stone|snow|ice|salt|clay|artifical_turf|tartan)'																						
+																											{set jbmpavedcar = false ; set jbmpavedbike = false ; set jbmpaved = false ; set jbmknownsurface = true}
+jbmsurface ~ '.*(rock|bricks|grass|gravel|sand).*'								{set jbmpavedcar = false ; set jbmpavedbike = false ; set jbmpaved = false ; set jbmknownsurface = true}
+
+#Tagging: first the defaults that could be overwritten if surface is excplicitly set
+(highway = track & tracktype = grade1 & jbmsurface = *)											{set mkgmap:unpaved = 0}		#Could be overwritten if surface is of type  jbmknownsurface
+(highway = track & tracktype ~ '(grade[2-6])') 																{set mkgmap:unpaved = 1}		#Tracktype 2,3,4,5 are upaved by definition
+(highway = via_ferrata | sport = via_ferrata)										 							{set mkgmap:unpaved = 1}
+jbmminorroad = true & (sac_scale ~ '(.*hiking)' | mtb:scale = *)  & jbmsurface != * 	{set mkgmap:unpaved = 1}
+
+jbmmainroad = true	& jbmpavedcar = true 					{set mkgmap:unpaved = 0}
+jbmmainroad = true 	& jbmpavedcar = false 					{set mkgmap:unpaved = 1}
+jbmminorroad = true 	& jbmpavedcar = true 					{set mkgmap:unpaved = 0}
+jbmminorroad = true 	& jbmpavedbike = true 					{set mkgmap:unpaved = 0}
+jbmminorroad = true 	& jbmpavedbike = false 				{set mkgmap:unpaved = 1}
+
+#Lower the road speed of certain ways
+#highway = * & mkgmap:unpaved != 1 & smoothness ~ '.*(bad|horrible|impassable)' 	{add mkgmap:road-speed = '-2'} 
+#highway = * & construction = * & maxspeed != *																{add mkgmap:road-speed = '-1'}
+
+#Roundabouts, use road type 0x0c and the continue-option for a second  overlay later on
+#=======================================================================================
+junction = roundabout & highway ~ '(motorway|motorway_link)' 			{set jbmroutable = true} 	[0x0c road_class=4 road_speed=3 resolution 24 continue with_actions]
+junction = roundabout & highway ~ '(trunk|trunk_link)' 							{set jbmroutable = true} 	[0x0c road_class=4 road_speed=2 resolution 24 continue with_actions]
+junction = roundabout & highway ~ '(primary|primary_link)' 					{set jbmroutable = true} 	[0x0c road_class=3 road_speed=2 resolution 24 continue with_actions] 
+junction = roundabout & highway ~ '(secondary|secondary_link)' 			{set jbmroutable = true} 	[0x0c road_class=2 road_speed=2 resolution 24 continue with_actions]
+junction = roundabout & highway ~ '(tertiary|tertiary_link)' 					{set jbmroutable = true} 	[0x0c road_class=1 road_speed=1 resolution 24 continue with_actions]
+junction = roundabout & highway = unclassified										{set jbmroutable = true} 	[0x0c road_class=1 road_speed=1 resolution 24 continue with_actions]
+junction = roundabout & highway = residential										{set jbmroutable = true} 	[0x0c road_class=0 road_speed=1 resolution 24 continue with_actions]
+junction = roundabout & highway ~ '(living_street|service|road)'				{set jbmroutable = true} 	[0x0c road_class=0 road_speed=1 resolution 24 continue with_actions]
+junction = roundabout & highway ~ '(pedestrian|cycleway)'						{set jbmroutable = true} 	[0x0c road_class=0 road_speed=1 resolution 24 continue with_actions]
+junction = roundabout & highway ~ '(track|path|footway|bridleway)'		{set jbmroutable = true} 	[0x0c road_class=0 road_speed=1 resolution 24 continue with_actions]
+
+#Display oneway direction arrows
+#=======================================================================================
+tunnel = yes & disused = yes																						{deletealltags}
+(tunnel = yes | covered = yes | tunnel = building_passage)	& building != * 			{set jbmcovered = true}
+
+(oneway = yes | oneway = 1 | oneway = -1) &
+		(highway ~ '(secondary|motorway_link|trunk_link|primary_link|secondary_link|tertiary|tertiary_link|residential|living_street|unclassified|road|cycleway)' | (highway = service & service != parking_aisle)) &
+		!(jbmcovered = true | bridge = yes | junction = roundabout | access ~ '(no|private)') {set jbmaddonewaysymbol = true}
+#Add oneway bicycle arrow if opposite cycle is allowed: not a osm feature
+(jbmoptionpersonal = true | jbmoptionbicycle = true) & jbmaddonewaysymbol = true & oneway:bicycle = no 											[0x1000a resolution 24 continue with_actions]
+jbmaddonewaysymbol = true & highway = cycleway 														[0x1000b resolution 24 continue with_actions]
+jbmaddonewaysymbol = true & highway = cycleway 	& is_drive_on_left()  = true		[0x1000d resolution 24 continue with_actions]
+jbmaddonewaysymbol = true & !(highway = cycleway) & is_drive_on_left()  != true		[0x10000 resolution 24 continue with_actions]
+jbmaddonewaysymbol = true & !(highway = cycleway) & is_drive_on_left()  = true		[0x1000c resolution 24 continue with_actions]
+
+#Highways and Railways under construction
+#=======================================================================================
+highway = construction & area = yes 																													{deletealltags}
+highway = construction & construction ~ '(motorway|motorway_link)'																	[0x10c01 resolution 22]
+highway = construction & construction ~ '(trunk|trunk_link)' 																				[0x10c02 resolution 22]
+highway = construction & construction ~ '(primary|primary_link)'							 											[0x10c03 resolution 22]
+highway = construction & construction ~ '(secondary|secondary_link)'																[0x10c04 resolution 22]
+highway = construction & construction ~ '(tertiary|tertiary_link|unclassified|residential|living_street|service)' 	[0x10c05 resolution 24]
+highway = construction & construction ~ '(cycleway|footway|track|path|steps|bridleway)' 									[0x10c07 resolution 24]
+highway = construction									 																										[0x10c05 resolution 24]
+
+railway = construction & area = yes 																														{deletealltags}
+railway = construction & construction ~ '(rail|tram|narrow_gauge|yes|light_rail|subway|miniature|funicular)'		[0x10c08 resolution 24]
+railway = construction																																				[0x10c08 resolution 22]
+
+#Bridges & Tunnels (Bridges before tunnels)
+#=======================================================================================
+#Is highway within pedestrian area?
+highway = * & is_in(highway,pedestrian, any) = true										{set jbmhighwayinpedestrian = true}
+
+#Bridge wide
+bridge ~ '(yes|boardwalk|cantilever|covered|low_water_crossing|movable|trestle|viaduct)' &
+	!(piste:type = * | building = * | railway = * | attraction = water_slide) &
+	!(area = yes | man_made = bridge | man_made = pier | mkgmap:mp_created = true) &
+	(highway ~ '(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|service|unclassified|living_street|road|pedestrian)' | waterway = canal)
+	[0x2a resolution 24 continue with_actions]
+
+#Bridge narrow
+bridge ~ '(yes|boardwalk|cantilever|covered|low_water_crossing|movable|trestle|viaduct)' &
+	!(piste:type = * | building = * | attraction = water_slide | man_made ~ '(bridge|pier)') &
+	!(area = yes | mkgmap:mp_created = true) &
+	(	highway ~ '(footway|bridleway|steps|cycleway|track|path)' | 
+		railway  ~ '(rail|narrow_gauge|light_rail|tram)' |
+		waterway = stream
+	)
+	[0x2b resolution 24 continue with_actions]
+
+#Tunnel narrow : just visual no routing
+jbmcovered = true &
+	highway ~'(path|footway|bridleway|track|cycleway|steps)' &
+	!(piste:type = * | building = * | service = parking_aisle | attraction = water_slide) &
+	!(area = yes | jbmhighwayinpedestrian = true)
+	[0x24 resolution 24 continue]
+
+#Highways
+#=======================================================================================
+#If a highway is part of an hiking or cycleroute then always show up on zoomlevel 20 even if it was private or steps etc. This way we always have nice connected lines without gaps.
+#The rest is shown on zoomlevels form 14 to 24 based on their importance
+#If a routable line is applied  it wil also be marked as jbmroutable = true, which gives us the oppertunity to alert if a highway slips accidentially through the rules.
+#Be sure on low zoomlevels to not use typ-file lines with lables otherwise the streetlables will suppress the placenames
+highway = * & is_in(highway,pedestrian, any) = true									{set jbmhighwayinarea = true}
+highway = * & is_in(highway,footway, any) = true										{set jbmhighwayinarea = true}
+highway = * & is_in(highway,path, any) = true												{set jbmhighwayinarea = true}
+
+#Variables to make things easier
+access ~ '(no|private|destination)' & !(mkgmap:synthesised = yes) {set jbmlimited = true}							#Only to distinguish to dotted overlay used
+jbmcovered = true &
+	highway ~ '(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|service)' &
+	!(piste:type = * | building = * | service = parking_aisle | attraction = water_slide | area = yes)	{set jbmtunnel = true}
+
+#Add synthesized cycleways myself  (bicycle:oneway=no > becoming obsolete by id-editor)
+highway = residential & oneway = * & junction != roundabout & mkgmap:country ~ '(AUT)' 		{add oneway:bicycle = no}
+
+(highway = * & oneway = * & !(highway = cycleway | bicycle = use_sidepath | oneway:bicycle = yes)) &
+(
+oneway:bicycle ~ '(no|dismount|tolerated|opposite)' |
+cycleway=opposite |
+cycleway=opposite_lane |
+cycleway=opposite_track |
+cycleway:left=opposite |
+cycleway:left=opposite_lane |
+cycleway:left=opposite_track |
+cycleway:right=opposite |
+cycleway:right=opposite_lane |
+cycleway:right=opposite_track
+)  {setaccess no ; set mkgmap:bicycle=yes ;  set jbmoneway = '$(oneway)' ; set oneway = no ; set jbmsynthesized = yes} [0x0a road_class=0 road_speed=1 resolution 24 continue with_actions]
+jbmsynthesized = yes {set oneway = '$(jbmoneway)'}   #could be yes, no but also -1 or 1
+
+#If it is a highway or a ferry or routable pier then calculate access rules, if overall access  =  no then we can make the line a static line instead of routable line
+if (jbmmainroad= true | jbmminorroad = true | man_made = pier | route = ferry | highway = bus_guideway | highway = busway | highway = platform) then
+	include 'access';
+end
+
+#Motorway (Red)
+highway = motorway 																																										[0x10e05 resolution 14-14 continue]
+highway = motorway 																																										[0x10e01 resolution 15-16 continue]
+highway = motorway 																																										[0x10e06 resolution 17-17 continue]
+highway = motorway 																																										[0x10d01 resolution 18-18 continue]
+highway = motorway 							& jbmlimited = true & jbmunaccessible = true																[0x10d10 resolution 20]
+highway = motorway 							& jbmlimited = true																											[0x10d10 resolution 20 continue]
+highway = motorway 							& jbmlimited = true 													{set jbmroutable = true}				[0x10 road_class=4 road_speed=7 resolution 24]
+highway = motorway 																																										[0x10d05 resolution 20-20 continue]
+highway = motorway 							& jbmtunnel = true																											[0x10401 resolution 22 continue]
+highway = motorway 							& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=4 road_speed=7 resolution 24]
+highway = motorway							 																					{set jbmroutable = true} 				[0x01 road_class=4 road_speed=7 resolution 22]
+highway = motorway_link 																																								[0x10e01 resolution 20-20 continue]
+highway = motorway_link 					& jbmlimited = true & jbmunaccessible = true																[0x10d10 resolution 20]
+highway = motorway_link 					& jbmlimited = true 																											[0x10d10 resolution 20 continue]
+highway = motorway_link 					& jbmlimited = true													{set jbmroutable = true}				[0x10 road_class=4 road_speed=2 resolution 24]
+highway = motorway_link 					& jbmtunnel != true																											[0x10d05 resolution 22-22 continue]
+highway = motorway_link 					& jbmtunnel = true																											[0x10401 resolution 22 continue]
+highway = motorway_link 					& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=4 road_speed=2 resolution 24]
+highway = motorway_link							 																			{set jbmroutable = true} 				[0x08 road_class=4 road_speed=2 resolution 24]
+
+#Trunk (Dark orange)
+highway = trunk 																																												[0x10e02 resolution 15-16 continue]
+highway = trunk 																																												[0x10e07 resolution 17-17 continue]
+highway = trunk 																																												[0x10d02 resolution 18-18 continue]
+highway = trunk 									& jbmlimited = true & jbmunaccessible = true																[0x10d11 resolution 20]
+highway = trunk 									& jbmlimited = true																											[0x10d11 resolution 20 continue]
+highway = trunk 									& jbmlimited = true													{set jbmroutable = true	}				[0x10 road_class=4 road_speed=5 resolution 24]
+highway = trunk 																																												[0x10d06 resolution 20-20 continue]
+highway = trunk 									& jbmtunnel = true																											[0x10402 resolution 22 continue]
+highway = trunk 									& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=4 road_speed=5 resolution 24]
+highway = trunk							 																							{set jbmroutable = true} 				[0x02 road_class=4 road_speed=5 resolution 22]
+highway = trunk_link																																										[0x10d02 resolution 20-20 continue]
+highway = trunk_link 							& jbmlimited = true & jbmunaccessible = true																[0x10d11 resolution 20]
+highway = trunk_link 							& jbmlimited = true																											[0x10d11 resolution 20 continue]
+highway = trunk_link 							& jbmlimited = true													{set jbmroutable = true}				[0x10 road_class=4 road_speed=2 resolution 24]
+highway = trunk_link 							& jbmtunnel != true																											[0x10d06 resolution 22-22 continue]
+highway = trunk_link 							& jbmtunnel = true																											[0x10402 resolution 22 continue]
+highway = trunk_link 							& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=4 road_speed=2 resolution 24]
+highway = trunk_link							 																					{set jbmroutable = true} 				[0x09 road_class=4 road_speed=2 resolution 22]
+
+#Primary (Orange)
+highway = primary 																																											[0x10e03 resolution 16-17 continue]
+highway = primary 																																											[0x10d03 resolution 18-18 continue]
+highway = primary 																																											[0x10d07 resolution 20-20 continue]
+highway = primary 								& jbmlimited = true & jbmunaccessible = true																[0x10d12 resolution 20]
+highway = primary 								& jbmlimited = true																											[0x10d12 resolution 20 continue]
+highway = primary 								& jbmlimited = true													{set jbmroutable = true}				[0x10 road_class=3 road_speed=4 resolution 24]
+highway = primary 								& jbmtunnel = true																											[0x10403 resolution 22 continue]
+highway = primary 								& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=3 road_speed=4 resolution 24]
+highway = primary							 																						{set jbmroutable = true} 				[0x03 road_class=3 road_speed=4 resolution 22]
+highway = primary_link																																									[0x10d03 resolution 20-20 continue]
+highway = primary_link 																																									[0x10d07 resolution 22-22 continue]
+highway = primary_link 						& jbmlimited = true & jbmunaccessible = true																[0x10d12 resolution 20]
+highway = primary_link 						& jbmlimited = true																											[0x10d12 resolution 20 continue]
+highway = primary_link 						& jbmlimited = true													{set jbmroutable = true}				[0x10 road_class=3 road_speed=1 resolution 24]
+highway = primary_link 						& jbmtunnel = true																											[0x10403 resolution 22 continue]
+highway = primary_link 						& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=3 road_speed=1 resolution 24]
+highway = primary_link							 																				{set jbmroutable = true} 				[0x0d road_class=3 road_speed=1 resolution 22]
+
+#Secondary (Yellow)
+highway = secondary 																																										[0x10d04 resolution 18-18 continue]
+highway = secondary 																																										[0x10d08 resolution 20-20 continue]
+highway = secondary 							& jbmlimited = true & jbmunaccessible = true																[0x10d13 resolution 22]
+highway = secondary 							& jbmlimited = true																											[0x10d13 resolution 22 continue]
+highway = secondary 							& jbmlimited = true													{set jbmroutable = true}				[0x10 road_class=2 road_speed=3 resolution 24]
+highway = secondary 							& jbmtunnel = true																											[0x10404 resolution 22 continue]
+highway = secondary 							& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=2 road_speed=3 resolution 24]
+highway = secondary							 																					{set jbmroutable = true} 				[0x04 road_class=2 road_speed=3 resolution 22]
+highway = secondary_link 					& jbmtunnel = true																											[0x10404 resolution 22 continue]
+highway = secondary_link 					& jbmlimited = true & jbmunaccessible = true																[0x10d13 resolution 22]
+highway = secondary_link 					& jbmlimited = true																											[0x10d13 resolution 22 continue]
+highway = secondary_link 					& jbmlimited = true													{set jbmroutable = true}				[0x10 road_class=2 road_speed=1 resolution 24]
+highway = secondary_link 					& jbmtunnel = true													{set jbmroutable = true}				[0x10 road_class=2 road_speed=1 resolution 24]
+highway = secondary_link							 																			{set jbmroutable = true} 				[0x0b road_class=2 road_speed=1 resolution 22]
+
+#Tertiary (White)
+highway = tertiary								& area = yes 																{set jbmroutable = true} 				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = tertiary  								& jbmlimited = true & jbm_route_from_relation = true  													[0x10d0a resolution 20-20 continue]
+highway = tertiary  								& jbmlimited = true & jbm_route_from_relation = true  													[0x10d0b resolution 22-22 continue]
+highway = tertiary  								& jbmlimited = true																											[0x10d14 resolution 24 continue ]
+highway = tertiary		 						& jbmlimited = true & jbmunaccessible = true & !(access ~ '(no|private)') 					{add dbgmsgverbose = 'Verbose (L.01) - $(highway) skipped for routable overlay - no-access'}
+highway = tertiary  								& jbmlimited = true & jbmunaccessible != true		{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = tertiary 																																											[0x10d0a resolution 20-20 continue]
+highway = tertiary 																																											[0x10d0b resolution 22-22 continue]
+highway = tertiary 								& jbmtunnel = true																											[0x10405 resolution 22 continue]
+highway = tertiary 								& jbmtunnel = true & jbmunaccessible != true		{set jbmroutable = true}				[0x10 road_class=1 road_speed=3 resolution 24]
+highway = tertiary							 	& jbmunaccessible != true											{set jbmroutable = true} 				[0x05 road_class=1 road_speed=3 resolution 24]
+highway = tertiary_link						& area = yes 																{set jbmroutable = true} 				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = tertiary_link  						& jbmlimited = true & jbm_route_from_relation = true  													[0x10d09 resolution 20-20 continue]
+highway = tertiary_link  						& jbmlimited = true & jbm_route_from_relation = true  													[0x10d0a resolution 22-22 continue]
+highway = tertiary_link  						& jbmlimited = true 																											[0x10d14 resolution 24 continue ]
+highway = tertiary_link 						& jbmlimited = true & jbmunaccessible = true & !(access ~ '(no|private)')					{add dbgmsgverbose = 'Verbose (L.01) - $(highway) skipped for routable overlay - no-access'}
+highway = tertiary_link  						& jbmlimited = true & jbmunaccessible != true		{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = tertiary_link 						& jbmtunnel = true																											[0x10405 resolution 22 continue]
+highway = tertiary_link 						& jbmtunnel = true & jbmunaccessible != true		{set jbmroutable = true}				[0x10 road_class=1 road_speed=1 resolution 24]
+highway = tertiary_link						& jbm_route_from_relation = true																						[0x10d0a resolution 20-22 continue]
+highway = tertiary_link						& jbmunaccessible != true											{set jbmroutable = true} 				[0x06 road_class=1 road_speed=1 resolution 24]
+
+#Unclassified (White)
+highway = unclassified						& area = yes 																{set jbmroutable = true} 				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = unclassified  						& jbmlimited = true & jbm_route_from_relation = true  													[0x10d09 resolution 20-22 continue]
+highway = unclassified  						& jbmlimited = true 																											[0x10d14 resolution 24 continue ]
+highway = unclassified 						& jbmlimited = true & jbmunaccessible = true & !(access ~ '(no|private)')					{add dbgmsgverbose = 'Verbose (L.01) - $(highway) skipped for routable overlay - no-access'}
+highway = unclassified  						& jbmlimited = true & jbmunaccessible != true		{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = unclassified 						& jbm_route_from_relation = true  																					[0x10d09 resolution 20-20 continue]
+highway = unclassified 																						  																			[0x10d0a resolution 22-22 continue]
+highway = unclassified 						& jbmtunnel = true																											[0x10406 resolution 22 continue]
+highway = unclassified 						& jbmtunnel = true & jbmunaccessible != true		{set jbmroutable = true}				[0x10 road_class=1 road_speed=3 resolution 24]
+highway = unclassified						& jbmunaccessible != true											{set jbmroutable = true} 				[0x06 road_class=0 road_speed=3 resolution 24]
+highway = unclassified						& jbmunaccessible = true & jbmlimited != true										 						[0x10d0b resolution 24]		#Should actually be thicker line like 0x06
+
+#Residential (White)
+highway = residential							& area = yes 																{set jbmroutable = true} 				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = residential  						& jbmlimited = true & jbm_route_from_relation = true  													[0x10d09 resolution 20-22 continue]
+highway = residential  						& jbmlimited = true 																											[0x10d14 resolution 24 continue ]
+highway = residential 							& jbmlimited = true & jbmunaccessible = true & !(access ~ '(no|private)')					{add dbgmsgverbose = 'Verbose (L.01) - $(highway) skipped for routable overlay - no-access'}
+highway = residential  						& jbmlimited = true & jbmunaccessible != true		{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = residential 							& jbm_route_from_relation = true  																					[0x10d09 resolution 20-20 continue]
+highway = residential 																						  																				[0x10d09 resolution 22-22 continue]
+highway = residential 							& jbmtunnel = true																											[0x10407 resolution 22 continue]
+highway = residential 							& jbmtunnel = true & jbmunaccessible != true		{set jbmroutable = true}					[0x10 road_class=1 road_speed=3 resolution 24]
+highway = residential							& jbmunaccessible != true 										{set jbmroutable = true} 				[0x06 road_class=0 road_speed=2 resolution 24]
+highway = residential							& jbmunaccessible = true & jbmlimited != true										 						[0x10d0b resolution 24]
+
+#Service (White)
+highway = service								& area = yes 																{set jbmroutable = true} 				[0x0a road_class=0 road_speed=1 resolution 24 continue with_actions]
+highway = service								& area = yes 																									 					[0x10110 resolution 24 continue]
+if (highway = service & !(area =yes)) then
+highway = service  								& jbmlimited = true & jbm_route_from_relation = true  													[0x10d09 resolution 20-20 continue]
+highway = service  								& jbmlimited = true & jbm_route_from_relation = true  													[0x10d0a resolution 22-22 continue]
+highway = service  								& jbmlimited = true 																											[0x10d14 resolution 24 continue ]
+highway = service 								& jbmlimited = true	& jbmunaccessible = true & !(access ~ '(no|private)')			{add dbgmsgverbose = 'Verbose (L.01) - $(highway) skipped for routable overlay - no-access'}
+highway = service  								& jbmlimited = true	& jbmunaccessible != true		{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = service 								& jbm_route_from_relation = true  																					[0x10d09 resolution 20-20 continue]
+highway = service 								& jbm_route_from_relation = true  																					[0x10d0a resolution 22-22 continue]
+highway = service 								& jbmtunnel = true																											[0x10408 resolution 24 continue]
+highway = service 								& jbmtunnel = true	& jbmunaccessible != true		{set jbmroutable = true}				[0x10 road_class=1 road_speed=3 resolution 24]
+highway = service								& jbmunaccessible != true 										{set jbmroutable = true} 				[0x07 road_class=0 road_speed=2 resolution 24]
+highway = service								& jbmunaccessible = true & jbmlimited != true										 						[0x10d0a resolution 24]
+end
+
+#Road (Dark grey)
+highway = road 									& jbmlimited = true	& jbm_route_from_relation = true													[0x10d15 resolution 20-22 continue]
+highway = road 									& jbmlimited = true																											[0x10a15 resolution 24 continue]
+highway = road 									& jbmlimited	= true													{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]					
+highway = road 									& jbm_route_from_relation = true																						[0x10d0e resolution 20 continue]
+highway = road 									& jbm_route_from_relation != true																					[0x10d0e resolution 24 continue]
+highway = road																														{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+
+#Living street (Light grey)
+highway = living_street 															& jbm_route_from_relation = true													[0x10d0d resolution 20-20 continue]
+highway = living_street 															& jbm_route_from_relation = true													[0x10d0d resolution 22-22 continue]
+highway = living_street 						& jbmlimited = true																											[0x10e00 resolution 24 continue]
+highway = living_street 						& jbmlimited = true	& jbmunaccessible = true & !(access ~ '(no|private)')				{add dbgmsgverbose = 'Verbose (L.01) - $(highway) skipped for routable overlay - no-access'}
+highway = living_street 						& jbmlimited = true	& jbmunaccessible != true		{set jbmroutable = true}				[0x0a road_class=0 road_speed=1 resolution 24]
+highway = living_street 															& jbmunaccessible != true		{set jbmroutable = true} 				[0x0e road_class=0 road_speed=1 resolution 24]
+
+#Cycleways
+#=======================================================================================
+highway = cycleway & jbm_route_from_relation = true																												[0x10505 resolution 20-22 continue]
+highway = cycleway & jbm_route_from_relation != true 																												[0x10505 resolution 22-22 continue]
+highway = cycleway & mkgmap:unpaved = 1																		{set jbmroutable = true} 				[0x12 road_class=2 road_speed=2 resolution 24]
+highway = cycleway 																												{set jbmroutable = true} 				[0x11 road_class=2 road_speed=2 resolution 24]
+
+#Squares and pedestrian areas
+#=======================================================================================
+#Sports track, overlay only, don't know why but it ONLY works if used as : continue with_actions 
+highway ~ '(footway|path|track)' & leisure = track																{set jbmroutable = true} 				[0x0a road_class=1 road_speed=0 resolution 24 continue with_actions]
+highway ~ '(footway|path)' & leisure != track & jbmlimited = true & jbm_route_from_relation = true					{set jbmroutable = true}					[0x0a road_class=2 road_speed=2 resolution 24 continue with_actions]		
+highway ~ '(footway|path)' & leisure != track & is_closed() = true 										{set jbmroutable = true} 				[0x0a road_class=1 road_speed=2 resolution 24 continue with_actions]
+
+#Overlay on private footway
+highway ~ '(footway|path)' & leisure != track & access ~ '(no|private)' & area != yes 																		[0x10d16 resolution 24]
+highway ~ '(footway|path)' & !(area = yes & is_closed() = true) & mkgmap:mp_created != true & leisure != track 		 {set jbmfootway = true}
+
+jbmhighwayinpedestrian = true & (layer < 0 | level < 0 | tunnel = *)										{set jbmhidefootway = true}
+jbmfootway = true & jbmhidefootway = true					{set jbmroutable = true} 																	[0x10 road_class=1 road_speed=1 resolution 24]
+jbmfootway = true & jbm_route_from_relation	= true										 							{set jbmroutable = true} 		[0x16 road_class=1 road_speed=1 resolution 20]
+jbmfootway = true & length() >2000	 																						{set jbmroutable = true} 		[0x16 road_class=1 road_speed=1 resolution 20]
+jbmfootway = true & length() >1000	 																						{set jbmroutable = true} 		[0x16 road_class=1 road_speed=1 resolution 22]
+jbmfootway = true								 																							{set jbmroutable = true} 		[0x16 road_class=1 road_speed=1 resolution 24]
+
+highway ~ '(pedestrian|footway|path)' & (mkgmap:mp_created = true | is_closed() = true)	{set jbmouter = true ; set jbmsquare = true} 	[0x10101 resolution 24 continue with_actions]		#20200619 Removed exclusion for pier
+(highway_pedestrian_inner = true | highway_pedestrian_outer = true) & jbmouter != true																				[0x10101 resolution 24 continue with_actions]
+
+#Pedestrian street
+highway = pedestrian & man_made != pier & jbmsquare != true  & jbm_route_from_relation = true														[0x10d0f resolution 20-22 continue]
+highway = pedestrian & jbmhighwayinpedestrian = true & jbmsquare != true																							[0x10d0c resolution 24 continue]
+highway = pedestrian & jbmhighwayinpedestrian = true & jbmsquare != true												{set jbmroutable = true} 	[0x0a road_class=0 road_speed=0 resolution 24]
+highway = pedestrian & man_made != pier &  jbmsquare != true 										 							{set jbmroutable = true} 	[0x0f road_class=0 road_speed=0 resolution 24]
+highway = pedestrian & man_made != pier 										 																{set jbmroutable = true} 	[0x0a road_class=0 road_speed=0 resolution 24 continue with_actions]
+highway = pedestrian & jbmroutable != true  & jbmunaccessible != true														{set jbmroutable = true} 	[0x0a road_class=0 road_speed=0 resolution 24 continue with_actions]
+
+#Footways & tracks
+#=======================================================================================
+#Area rendering for tracks is depricated by mapnik but still needed for routing. So don't exclude for the 0x0a overlay
+#20200526 Bizar tagging leisure = outdoor_seating & highway=track  https://www.openstreetmap.org/#map=19/50.11381/8.67855
+if (highway = * & leisure != track) then
+	highway = track & tracktype = grade1 & 	access ~ '(no|private|destination)' & jbmunaccessible = true		[0x10d17 resolution 24]
+	highway = track & tracktype = grade1 & 	access ~ '(no|private|destination)' & jbmunaccessible != true		[0x10d17 resolution 24 continue]
+	highway = track & 										access ~ '(no|private|destination)' & jbmunaccessible = true		[0x10d18 resolution 24]
+	highway = track & 										access ~ '(no|private|destination)' & jbmunaccessible != true		[0x10d18 resolution 24 continue]
+#	highway = track & 										access ~ '(no|private|destination)' & jbmunaccessible != true 	{set jbmroutable = true} 	[0x0a road_class=0 road_speed=1 resolution 24]
+
+	highway = track		  									& jbmunaccessible != true	{set jbmroutable = true} 	[0x0a road_class=0 road_speed=1 resolution 24 continue with_actions]
+	highway = track & tracktype = grade1							 																	[0x10503 resolution 22-22 continue]
+	highway = track & tracktype = grade1							 																	[0x10001 resolution 24]
+	highway = track & tracktype = grade2	& jbm_route_from_relation = true										[0x10504 resolution 22-22 continue]
+	highway = track & tracktype = grade2							 																	[0x10002 resolution 24]
+	highway = track & tracktype = grade3	& jbm_route_from_relation = true										[0x10504 resolution 22-22 continue]
+	highway = track & tracktype = grade3																								[0x10003 resolution 24]
+	highway = track & tracktype = grade4	& jbm_route_from_relation = true										[0x10504 resolution 22-22 continue]
+	highway = track & tracktype = grade4																								[0x10004 resolution 24]
+	highway = track & tracktype = grade5	& jbm_route_from_relation = true										[0x10504 resolution 22-22 continue]
+	highway = track & tracktype = grade5																								[0x10005 resolution 24]
+	highway = track	& (length() > 5000 | jbm_route_from_relation = true)		 									[0x10504 resolution 20-20 continue]
+	highway = track & (length() > 1000 | jbm_route_from_relation = true)											[0x10504 resolution 22-22 continue]
+	highway = track								 																									[0x10006 resolution 24]
+
+	highway = steps & jbmhighwayinpedestrian != true & area != yes & access ~ '(no|private)'			[0x10d19 resolution 24]
+	highway = steps & area != yes & jbmhighwayinpedestrian = true													{set jbmroutable = true} 	[0x0a road_class=0 road_speed=0 resolution 20]
+	highway = steps & area != yes & jbm_route_hiking ~ '([l|r|n|i]wn)' 													{set jbmroutable = true} 	[0x13 road_class=0 road_speed=0 resolution 20]
+	highway = steps & area != yes	 																										{set jbmroutable = true} 	[0x13 road_class=0 road_speed=0 resolution 24]
+
+	highway ~ '(bus_guideway|busway)' 																									[0x10009 resolution 22 continue]
+	highway ~ '(bus_guideway|busway)'														{set jbmroutable = true} 	[0x10 road_class=3 road_speed=4 resolution 24]
+	highway = raceway & area != yes																										[0x10a07 resolution 24]
+	highway = bridleway & area != yes 																									[0x10008 resolution 24 continue]
+	highway = bridleway & area != yes														{set jbmroutable = true} 	[0x0a road_class=0 road_speed=0 resolution 24]
+end
+
+#Pier
+if (man_made = pier & !(leisure = fishing)) then
+	area = no 																	{delete area}
+	highway != *																{set jbmroutable = true} 	[0x0a road_class=0 road_speed=0 resolution 24 continue with_actions]
+	area != * & is_closed() != true & highway = *														[0x10a16 resolution 24]
+	area != * & is_closed() != true 																				[0x10a15 resolution 24]
+end
+
+#Public transport, see also polygons (railway is both narrow gauge and normal train, highway is bus)
+highway = platform & !(area = yes | is_closed() = true)		{set jbmroutable = true} 		[0x0a road_class=0 road_speed=0 resolution 24 continue with_actions]
+highway = platform & !(area = yes | is_closed() = true) 													 	[0x10a06 resolution 24]
+
+#Ferry
+#=======================================================================================
+route = ferry																									{set mkgmap:numbers = false ; set mkgmap:ferry = true ; add mkgmap:toll=yes}
+route = ferry & tourism = attraction & jbm_route_from_relation != yes 												[0x10007 resolution 24]
+route = ferry & !(mkgmap:car = no) & length() > 10000 																	[0x10007 resolution 18-20 continue]
+route = ferry & length() > 2000 																											[0x10007 resolution 22-22 continue]
+route = ferry & mkgmap:car = no								 								{set jbmroutable = true}	[0x1b road_class=0 road_speed=0 resolution 24]		#Slow ferry
+#route = ferry 																								{set jbmroutable = true}	[0x1a road_class=3 road_speed=1 resolution 24]		#Fast ferry (Don't know why default style distinguishes, but leaf it the same)
+route = ferry 																								{set jbmroutable = true}	[0x1b road_class=3 road_speed=1 resolution 24]
+
+#Debugging / unittesting / could be disabled for faster processing
+#=======================================================================================
+(highway ~ '(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|service|unclassified|living_street|road|pedestrian)' |
+		highway ~ '(footway|bridleway|steps|cycleway|track|path|platform)' | route = ferry | man_made = pier) &
+		!(jbmroutable = true) & !(area = yes | is_closed() = true) &
+		!(area = yes | mkgmap:cache_area_size = * | tourism = attraction | mkgmap:mp_created = true | landuse = * | jbmunaccessible = true)
+		{add dbgmsgerror = 'Error (L1.1) - Known highway or ferry is not routable' ;
+		add dbgcategory = 'debug - improve osm tagging' ; set mkgmap:execute_finalize_rules = true}
+
+(highway ~ '(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|service|unclassified|living_street|road|pedestrian)' |
+		highway ~ '(footway|bridleway|steps|cycleway|track|path|platform)' | route = ferry | man_made = pier) &
+		!(jbmroutable = true) & !(area = yes | is_closed() = true) &
+		jbm_route_from_relation = true & !(jbm_route_mtb = true)
+		{add dbgmsgerror = 'Error (L1.2) - Known highway or ferry is part of a walking / bike or public-transportation route but is not routable' ;
+		add dbgcategory = 'debug - improve osm tagging' ; set mkgmap:execute_finalize_rules = true}
+
+(highway ~ '(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|service|unclassified|living_street|road|pedestrian)' |
+		highway ~ '(footway|bridleway|steps|cycleway|track|path|platform)' | route = ferry | man_made = pier) &
+		!(area = yes | is_closed() = true) &
+		!(jbmunaccessible = true | area = yes | mkgmap:mp_created = true | jbmsquare = true | leisure = track | (man_made = pier & (mkgmap:cache_area_size > 0 | leisure = fishing)))
+		{add dbgmsgerror = 'Error (L1.3) - Known highway or ferry passed all the highway rules without being processed' ;
+		add dbgcategory = 'debug - improve osm tagging' ; set mkgmap:execute_finalize_rules = true}
+
+man_made ~ '(dyke|embankment)' & (bicycle = * | foot = * | motor_vehicle = * | vehicle = * | access = *) &
+		!(highway ~ '(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|residential|service|unclassified|living_street| road|pedestrian|footway|bridleway|steps|cycleway|track|path)') & 
+		!(area = yes | is_closed() = true) &
+		!(access ~ '(no|private|military)')
+		{add dbgmsgverbose = 'Verbose (L1.4) - Embankement/dyke probably missing path or service' ;
+		add dbgcategory = 'debug - improve osm tagging' ; set mkgmap:execute_finalize_rules = true}
+
+
+#Railways
+#=======================================================================================
+#Within tunnels
+railway = rail & service ~ '(siding|spur|yard)' 			& jbmcovered = true  																	[0x10c09 resolution 24]
+railway = rail 															& jbmcovered = true & length() > 1000 										[0x10011 resolution 20]
+railway = rail 															& jbmcovered = true			 															[0x10011 resolution 22]
+railway  ~ '(narrow_gauge|light_rail|subway|tram)'	& jbmcovered = true																		[0x10012 resolution 24]
+
+#No tunnels
+#20170825 JB: Differentiate types of rails (service = siding, service = spur, service = yard),  (service = crossover) will be visible as normal rails
+railway = rail & jbmcovered != true & service ~ '(siding|spur|yard)'  																			[0x10018 resolution 24]
+railway = rail & jbmcovered != true & (trainroute = yes | highspeed = yes | usage = main) & service != crossover	[0x10014 resolution 18-22 continue]
+railway = rail & jbmcovered != true																																[0x14 resolution 24]
+railway = monorail 											[0x10017 resolution 24]
+railway = turntable 											[0x10019 resolution 24]
+railway = funicular 											[0x10015 resolution 22]
+
+railway = narrow_gauge &  building != * &  length() > 500																							[0x10015 resolution 22]
+railway = narrow_gauge & building != *	 																													[0x10015 resolution 24]
+railway ~ '(tram|subway)' & highway = service 	& building != * & jbmcovered != true & length() > 500					[0x1001a resolution 22]
+railway ~ '(tram|subway)' & highway = service 	& building != * & jbmcovered != true 												[0x1001a resolution 24]
+railway = tram & jbmcovered != true 		& building != * & length() > 500																[0x10015 resolution 22]
+railway = tram & jbmcovered != true		& building != * 		  																					[0x10015 resolution 24]
+railway = light_rail & jbmcovered != true	& building != * & length() > 500																[0x10015 resolution 22]
+railway = light_rail & jbmcovered != true	& building != *  																							[0x10015 resolution 24]
+
+railway = subway & jbmcovered != true 					[0x10013 resolution 22]
+railway = preserved							 							[0x1000f resolution 24]
+railway = disused														[0x10016 resolution 24]
+railway = miniature														[0x10010 resolution 24]
+
+#public_transport is not a criteria :  railway = platform & public_transport = platform & location != underground & jbmcovered != true & !(area = yes | is_closed() = true)  [0x10a06 resolution 24]
+railway = platform & location != underground & jbmcovered != true & !(area = yes | is_closed() = true)				 [0x10a06 resolution 24]  #https://www.openstreetmap.org/#map=19/51.17147/4.14315
+
+#Others
+#=======================================================================================
+attraction = water_slide & area != yes & !(is_closed() = true)																						[0x10a08 resolution 24]
+ 
+#Waterway and marina
+#=======================================================================================
+#Calculate the length for draworder
+if (waterway = *) then
+	length() >= 0												{set jbmlen = '$(jbm_waterway_distance)' | '$(jbm_waterway_length)' | '$(mkgmap:cache_length)'}
+	jbmlen < '$(distance|conv:"km=>m")' 	{set jbmlen = '$(distance|conv:"km=>m")'}
+	jbmlen < '$(jbm_waterway_distance)' 		{set jbmlen = '$(jbm_waterway_distance)'}
+	jbmlen < '$(jbm_waterway_length)' 		{set jbmlen = '$(jbm_waterway_length)'}
+end
+
+#Tunnels
+#20180507 removed attraction != * because of https://www.openstreetmap.org/#map=19/47.25839/9.58173 or https://www.openstreetmap.org/#map=19/48.26781/7.72301 
+#removing attraction will make it visible inside buildings as well
+waterway ~ '(river|canal)'					& tunnel ~ '(yes|culvert|flooded)'	&
+					!(is_in(natural, water, all_in_or_on) = true | is_in(waterway, riverbank, all_in_or_on) = true)		[0x10a12 resolution 24]						#https://www.openstreetmap.org/#map=19/46.76167/7.62125
+waterway ~ '(drain|stream|ditch)'		& tunnel ~ '(yes|culvert)' &
+					!(is_in(natural, water, all_in_or_on) = true | is_in(waterway, riverbank, all_in_or_on) = true)		[0x10a13 resolution 24]						#https://www.openstreetmap.org/#map=17/46.48126/9.45151
+waterway = stream & bridge ~ '(yes|aqueduct)' 																								[0x10a0a resolution 24 continue]		#https://www.openstreetmap.org/#map=18/52.14696/4.37953
+
+#Intermittent
+waterway = * & (intermittent = yes | seasonal ~ '(yes|spring|summer|autumn|winter|wet_season|dry_season)') {set jbmintermittent = true}
+if (jbmintermittent = true ) then
+	waterway ~ '(drain|stream|ditch)'																[0x26 resolution 24]
+	waterway ~ '(river|canal)'  & is_closed() = false & jbmlen >300000			[0x25 resolution 13-14 continue]
+	waterway ~ '(river|canal)'  & is_closed() = false	& jbmlen >100000			[0x25 resolution 15-15 continue]
+	waterway ~ '(river|canal)'  & is_closed() = false	& jbmlen >20000			[0x23 resolution 16-17 continue]
+	waterway ~ '(river|canal)'  & is_closed() = false	& jbmlen >5000				[0x23 resolution 18-18 continue]
+	waterway ~ '(river|canal)'  & is_closed() = false	& jbmlen >5000				[0x10a02 resolution 20-20 continue]
+	waterway ~ '(river|canal)'  																			[0x10a02 resolution 22]
+end
+
+#River / Canal (Sometimes drawn as polygon, then skip here and pass through to the polygon
+#0x25 - small, 0x23 - mid, 0x1f - wide
+waterway ~ '(river|canal)' & lock = yes & lock_name = * 	{set name = '$(lock_name)'}
+waterway ~ '(river|canal)' & !(is_closed() = true & natural = water) & jbmlen >300000									[0x25 resolution 13-14 continue]
+waterway ~ '(river|canal)' & !(is_closed() = true & natural = water) & jbmlen >100000									[0x25 resolution 15-15 continue]
+waterway ~ '(river|canal)' & !(is_closed() = true & natural = water) & jbmlen >20000									[0x23 resolution 16-17 continue]
+waterway ~ '(river|canal)' & !(is_closed() = true & natural = water) & jbmlen >5000										[0x25 resolution 18-18 continue]
+waterway ~ '(river|canal)' & !(is_closed() = true & natural = water) & jbmlen >5000										[0x23 resolution 20-20 continue]
+waterway ~ '(river|canal)' & !(is_closed() = true & natural = water)																	[0x1f resolution 22]
+
+#Drain, Stream, Ditch
+waterway ~ '(drain|stream|ditch)' & !(is_closed() = true & natural = water) & jbmlen > 20000						[0x10a10 resolution 17-17 continue]
+waterway ~ '(drain|stream|ditch)' & !(is_closed() = true & natural = water) & jbmlen > 5000						[0x10a10 resolution 18-18 continue]
+waterway ~ '(drain|stream|ditch)' & !(is_closed() = true & natural = water) & (name = * | jbmlen > 1000)	[0x10a10 resolution 20-20 continue]
+waterway ~ '(drain|stream|ditch)' & !(is_closed() = true & natural = water) 													[0x18 resolution 22]
+
+#Left overs, continue on dam for polygon fill
+waterway = dam & jbmareasize = 18									[0x10a04 resolution 18 continue]
+waterway = dam & jbmareasize = 20									[0x10a04 resolution 20 continue]
+waterway = dam & jbmareasize = 22									[0x10a04 resolution 22 continue]
+waterway = dam																	[0x10a04 resolution 24 continue]
+
+waterway ~ '(rapids|waterfall)' & building != * 					[0x1f resolution 22]
+waterway = weir & building != * & is_closed() != true		[0x10a05 resolution 24 continue]
+waterway = lock_gate & is_closed() != true 						[0x10b01 resolution 24 continue]
+
+#20170825 JB: Marina is a transparent area combining both land and sea. Thus no polygon of blue collored water.
+#20170825 JB: Mapnik does also display marina lines around a pier if the pier is tagged as marina, but this is very ugly and a bug to me
+(leisure = marina & mooring = no & man_made != pier & building != * & natural != water) 			[0x10a18 resolution 22]
+(leisure = marina & (natural = water | waterway = dock))																	[0x10a19 resolution 22 continue]
+(leisure = marina & man_made != pier & building != * & natural != water & waterway != dock) 		[0x10a19 resolution 22]
+
+#Aerialway
+#=======================================================================================
+#Short
+aerialway ~ '(chair_lift|drag_lift|t-bar|zip_line|platter|rope_tow|j-bar)' 	& length() <= 200	[0x10c0a resolution 24]
+aerialway ~ '(cable_car|gondola|mixed_lift)'	 										& length() <= 200	[0x10c0c resolution 24]
+aerialway = goods 																					& length() <= 200	[0x10c0b resolution 24]
+
+#Normal
+aerialway ~ '(chair_lift|drag_lift|t-bar|zip_line|platter|rope_tow|j-bar)' 										[0x10c0a resolution 22]
+aerialway ~ '(cable_car|gondola|mixed_lift)'	 																			[0x10c0c resolution 22]
+aerialway = goods 																														[0x10c0b resolution 22]
+
+#Man made
+#=======================================================================================
+man_made = pipeline & (tunnel = yes | location = underwater) 		{deletealltags}
+man_made = pipeline & area != yes & tunnel != yes &
+(location ~'(overground|overhead|surface|outdoor|platform)' | 
+bridge ~ '(yes|aqueduct|boardwalk|cantilever|covered|trestle|viaduct)') {name '${name} (${operator})' | '${name}' | '${operator}'} [0x28 resolution 24]
+man_made = goods_conveyor	 & location != underground & tunnel != yes								[0x10c0d resolution 24]
+
+man_made = embankment																												[0x10114 resolution 22 continue]  	#Use 'continue' to add landuse later 
+man_made = cutline																														[0x10e1c resolution 22-22 continue]
+man_made = cutline																														[0x10e1d resolution 24]
+
+#breakwater and groynes are difficult, sometimes filled, sometimes not, even if they are polygon's. If treated as polygon then don't use an outline else do
+man_made ~ '(breakwater|groyne)' & !(mkgmap:stylefilter = polygon | area = yes | (is_closed() = true & landuse = *))	[0x10a14 resolution 22]
+
+#Natural
+#=======================================================================================
+natural = cliff & area != yes 												[0x10115 resolution 24]
+natural = arete & area != yes 											[0x10508 resolution 22]
+natural = arete & area != yes 											[0x10508 resolution 22]
+natural = ridge & area != yes 											[0x10509 resolution 18-20 continue]
+natural = ridge & area != yes 											[0x1050a resolution 22]
+natural = tree_row 																[0x10a01 resolution 22]
+#natural = coastline 															[0x15 resolution 13]
+
+#Barriers
+#=======================================================================================
+#Parks and orchards can be marked with barrier = wall or barrier = hedge meaning both the barrier and the area should  then be rendered using 'continue'
+#Exclude fence for military and prison area, it's almost obvious both already have an outline
+barrier = hedge																	[0x10a03 resolution 24 continue]
+barrier = ditch																		[0x10113 resolution 24 continue]
+barrier = wall																		[0x10116 resolution 24 continue]
+barrier = retaining_wall														[0x10117 resolution 24 continue]
+barrier = city_wall																[0x10112 resolution 22 continue]
+historic = citywalls 																[0x10112 resolution 22 continue]
+barrier = fence & military != * & amenity != prison			[0x10111 resolution 24 continue]
+barrier = chain 																	[0x10111 resolution 24 continue]  	#Can be combined with parking https://www.openstreetmap.org/#map=18/63.99713/-22.6218
+barrier = guard_rail 															[0x10111 resolution 24]
+barrier = handrail 																[0x10111 resolution 24]
+
+#Aeroways
+#=======================================================================================
+aeroway = runway & is_closed() = false & highway != * {name '${ref}'} 	[0x10502 resolution 20-22 continue]
+aeroway = runway & is_closed() = false & highway != * {name '${ref}'} 	[0x27 resolution 24]
+aeroway = taxiway & is_closed() = false & highway != * {name '${ref}'} 	[0x10502 resolution 22]
+aeroway ~ '(airport|aerodrome)' & barrier != * 											[0x10106 resolution 22 continue]
+
+#Outlines for polygons, if not already surrounded by fences or walls and not tagged as buildings
+#=======================================================================================
+if (tourism = theme_park | tourism = aquarium | tourism = zoo) then
+	building != * & jbmareasize <= 16																						[0x1050d resolution 16-20 continue]
+	building != * & jbmareasize = 18 																							[0x1050d resolution 18-20 continue]
+	building != * & jbmareasize = 20																							[0x1050c resolution 20-20 continue]
+	building != * & jbmareasize <= 22 								{set jboutlineadded = true}			[0x1050b resolution 22]
+	building != *																		{set jboutlineadded = true}	 	[0x1050b resolution 24]
+end
+(theme_park_inner = true | theme_park_outer = true)  & jboutlineadded != true 	{set jboutlineadded = true}		[0x1050b resolution 22]
+
+#Tourism is caravan also has rules in the polygon file, so use continue
+(tourism = caravan_site | tourism = camp_site)  & barrier != *  																					[0x10104 resolution 22 continue]
+
+if (amenity = fire_station | amenity = police | landuse = military) then 
+	jbmareasize <= 16	& !(building = * | building:part = *) 		[0x10108 resolution 16 continue]
+	jbmareasize = 18		& !(building = * | building:part = *) 	 	[0x10108 resolution 18 continue]
+	jbmareasize = 20		& !(building = * | building:part = *) 		[0x10108 resolution 20 continue]
+	jbmareasize = 22		& !(building = * | building:part = *) 		[0x10108 resolution 22 continue]
+	!(building = * | building:part = *) 				 							[0x10108 resolution 24 continue]
+end
+
+landuse = industrial 																							& building != * {set jbmnoname = true} [0x1010b resolution 22-24 continue]		#Polygon fill, so use continue
+man_made ~ '(wastewater_plant|water_works)' & landuse != farmyard 			& building != * [0x1010b resolution 22-24 continue]		#https://www.openstreetmap.org/#map=17/51.18189/5.17485
+man_made = works & landuse != industrial														& building != * [0x1010b resolution 22-24] 						#No polygon fill, https://www.openstreetmap.org/#map=19/50.84109/4.0202
+
+landuse = commercial 	& building != * & is_in(highway,pedestrian, any) != true	 							[0x1010c resolution 22-24 continue]
+landuse = retail 				& building != * & is_in(highway,pedestrian, any) != true								[0x1010d resolution 22-24 continue]
+landuse = farmyard 		& building != * [0x1010e resolution 22-24 continue]
+
+landuse = quarry & natural != wetland & barrier != * & jbmareasize <= 20										[0x10105 resolution 20 continue]
+landuse = quarry & natural != wetland & barrier != * & jbmareasize = 22											[0x10105 resolution 22 continue]
+landuse = quarry & natural != wetland & barrier != *																			[0x10105 resolution 24 continue]
+
+#Amenities
+#=======================================================================================
+amenity = ferry_terminal & barrier != * & building != * 																		[0x1010f resolution 24 continue]
+#20180328 JB: 	According to changelog 4.10.0 also amenity = parking_space should be outlined, maybe it will cause cluttering  So use area_size() > 2x5m it will only be visible if used in a bigger area
+amenity ~  '(parking|bicycle_parking|motorcycle_parking|taxi|parking_space)' 	 	& !(barrier = * | parking = underground | building = *) & area_size() > 6			 [0x1010a resolution 24 continue]
+
+#Power plants en lines
+#=======================================================================================
+power ~ '(line|minor_line)' | (power = cable & !(location ~'(overhead|overground|surface|outdoor|platform)'))		[0x29 resolution 24]
+power = portal																																								[0x29 resolution 24]
+power ~ '(substation|plant)' & building != *  & barrier != *																							[0x10107 resolution 20 continue]
+power ~ '(generator)' & building != *  & barrier != * & !(is_in(power, plant, all))														[0x10107 resolution 20 continue]
+
+#Pitches and sport_centres (don't show outline in some situations)
+#=======================================================================================
+(building:part = * | building = *)  {set jbbuildinghint = true}
+jbbuildinghint != true & (leisure = pitch | leisure = playground) & (is_in(highway, pedestrian, all_in_or_on) = true  |  is_in(building, '*', all_in_or_on) = true)    {set jbbuildinghint = true}
+
+(landuse = recreation_ground | leisure = recreation_ground) & building != *																															{set jbrecreationground = true}
+leisure ~ '(sports_centre|fitness_centre|fitness_station|stadium|water_park)' & building != *	& !(seamark:type = *)																{set jbsportscentre = true}
+(jbsportscentre = true  | jbrecreationground = true | leisure = playground) & jbbuildinghint != true & barrier != * 															{set jboutlineadded = true}			[0x10104 resolution 24 continue]
+(sports_centre_inner = true | sports_centre_outer = true) & building != * & jboutlineadded != true 																																			[0x10104 resolution 24 continue]
+
+leisure = ice_rink & !(building = * | landuse ~ '(grass|meadow)') 																																																	[0x10102 resolution 22 continue]
+leisure = pitch & !(landuse ~ '(grass|meadow)' | highway = * | jbbuildinghint = true | barrier = * | seamark:type = *)															{set jboutlineadded = true}		 	[0x10102 resolution 24 continue]
+leisure = track & area = yes & !(building = * | landuse ~ '(grass|meadow)' | barrier = *)															& jboutlineadded != true	{set jboutlineadded = true}			[0x10102 resolution 22 continue]
+(pitch_inner = true | pitch_outer = true) & !(highway = * | seamark:type = *)																			& jboutlineadded != true 	{set jboutlineadded = true}			[0x10102 resolution 24 continue]
+leisure = track & !(building = * | area = yes | mkgmap:mp_created = true | mkgmap:stylefilter= polygon | natural = water)	& jboutlineadded != true															[0x10a09 resolution 24 continue]
+golf = hole  {name '${name}' | '${ref}'}		 																																																										[0x1001f resolution 24]
+ 
+amenity ~ '(university|college|school|kindergarten)' & !(building = * | barrier = *) 		[0x10103 resolution 22 continue]
+amenity = prison & building != * 																					[0x10109 resolution 22 continue]
+
+#National parks and nature_reserve
+#=======================================================================================
+boundary	= 	national_park 															& building != *	{set boundary = nature_reserve}
+boundary	= 	protected_area & protect_class ~ '([1-6]|1[a|b])'	& building != *	{set boundary = nature_reserve}
+leisure 		=	nature_reserve 														& building != *	{set boundary = nature_reserve ; delete leisure}
+
+#Shift the visibility of outlined nature reserves, the outline otherwise is to present
+boundary 	= 	nature_reserve & jbmareasize <= 14				{set jboutlineadded = true} 	[0x1001d resolution 16-17 continue]
+boundary 	= 	nature_reserve & jbmareasize <= 18				{set jboutlineadded = true} 	[0x1001d resolution 18-18 continue]
+boundary 	= 	nature_reserve & jbmareasize <= 20				{set jboutlineadded = true} 	[0x1001d resolution 20-20 continue]
+boundary 	= 	nature_reserve & jbmareasize <= 22				{set jboutlineadded = true} 	[0x1001c resolution 22 continue]
+boundary 	= 	nature_reserve 												{set jboutlineadded = true} 	[0x1001c resolution 24 continue]
+
+#Still Use 'continue' in order to add wetland polygons at lower zoomlevels
+(nature_reserve_outer = true | nature_reserve_inner = true) & jboutlineadded != true		[0x1001c resolution 22-24 continue]	
+
+#Political boundries
+#=======================================================================================
+#The following boundary styles are after the highway rules because ways are frequently tagged with both and we want the highway to take priority.
+#Country boundaries are drawn first because we do always want to see them.
+#At the most detailed level they fall together with streets and waterways and result in ugly extra lines, so i stop at 22
+
+#To avoid boundaries around islands and other small places, exclude closed borders smaller dan an arbitrary 20km to avoid cluttering
+#Country							Adminlevel							
+#Belgie			4/6/8			4	Region		(Vlaanderen / Wallonie) 	6	Provincie (eg. Antwerpen - Oostvlaanderen)	8 Gemeente
+#Zambia								4	Province		
+#Oostenrijk							4	Bundesland
+#Germany							4	Bundesland	5 	Regierungsbezirk		6 Kreis		8	Gemeinde
+
+#Filter out all boundaries which are not mp_created : these are orphaned pieces of boundary lines sometimes left behind
+#If landuse is residential as well then the admin border is not rendered only the residential area
+boundary = administrative & is_closed() = true & length() < 20000 				{set jbmsmallborder = true}
+if (boundary = administrative & !(landuse = residential | mkgmap:mp_created !=true )) then
+	if (boundary = administrative & !(jbmsmallborder = true | jbmskip = true)) then
+		#admin_level = 3 & jbmsmallborder !=true				[0x1d resolution 18-22]
+		admin_level = 4 & jbmsmallborder !=true  				[0x1051e resolution 15-16 continue]
+		admin_level = 4 & jbmsmallborder !=true  	 			[0x1051f resolution 17-20 continue]
+		admin_level = 4 & jbmsmallborder !=true  		 		[0x1d resolution 22]									#Province in Zambia
+		admin_level = 5 & jbmsmallborder !=true  		 		[0x1051e resolution 16-20 continue]
+		admin_level = 5 & jbmsmallborder !=true  		 		[0x1c resolution 22]
+		admin_level = 6 & jbmsmallborder !=true 	 			[0x1051e resolution 17-20 continue]
+		admin_level = 6 & jbmsmallborder !=true		 		[0x1c resolution 22]
+		#admin_level = 7 														[0x1c resolution 22]
+		admin_level = 8 & jbmsmallborder !=true				[0x1051e resolution 20-20 continue]
+	end
+	() admin_level = 8  															[0x1c resolution 22]
+	#() admin_level = 9 														[0x1c resolution 22]
+	#() admin_level = 10 														[0x1c resolution 22]
+	#() admin_level = 11 														[0x1c resolution 22]
+end
+
+#Contours
+#=======================================================================================
+# Contours take their name from the elevation setting. By using >0 <0 we get mountains and canyons but not the sealevel zero's
+contour = elevation & contour_ext = elevation_minor & (ele > 0 | ele < 0)		& !(is_closed() = true & mkgmap:cache_area_size < 6000)		{ name '${ele|conv:m=>ft}' }           [0x20 resolution 24]
+contour = elevation & contour_ext = elevation_medium & (ele > 0 | ele < 0)	& !(is_closed() = true & mkgmap:cache_area_size < 6000)		{ name '${ele|conv:m=>ft}' }           [0x21 resolution 22]
+contour = elevation & contour_ext = elevation_major & (ele > 0 | ele < 0)		& !(is_closed() = true & mkgmap:cache_area_size < 6000)		{ name '${ele|conv:m=>ft}' }           [0x22 resolution 20]
+
+#=======================================================================================
+#END
+#=======================================================================================
+(jbm_route_from_relation = true | jbmroutable = true) 	{set mkgmap:execute_finalize_rules = true}
+dbgtrace = true & mkgmap:option:jbmoptiondebug = true  {echotags 'debug - lines - body end'}
+
+<finalize>
+#=======================================================================================
+dbgtrace = true & mkgmap:option:jbmoptiondebug = true  {echotags 'debug - lines - finalize start'}
+
+#Set address on eveything
+include 'inc/address';
+
+#Display highway shield for mayor roads if they have a ref and make them searchable by their name
+highway = motorway 	& ref = * {name '${ref|highway-symbol:hbox}' 	; addlabel '${name}'}
+highway = trunk 			& ref = * {name '${ref|highway-symbol:hbox}' 	; addlabel '${name}'}
+highway = primary 		& ref = * {name '${ref|highway-symbol:box}' 	; addlabel '${name}'}
+highway = secondary 	& ref = * {name '${ref|highway-symbol:oval}' 	; addlabel '${name}'}
+highway = tertiary  		& ref = * {name '${ref|highway-symbol:oval}' 	; addlabel '${name}'}
+jbm_route_network_ncn = true 	&  mkgmap:option:jbmoptionbicycle = true		{name '${jbm_route_ref_ncn|highway-symbol:round}' ; addlabel '${name}'}
+jbm_route_network_icn = true 	&  mkgmap:option:jbmoptionbicycle = true		{name '${jbm_route_ref_icn|highway-symbol:round}' ; addlabel '${name}'}
+jbm_route_network_nwn = true &  mkgmap:option:jbmoptionhiking = true		{name '${jbm_route_ref_nwn|highway-symbol:round}' ; addlabel '${name}'}
+jbm_route_network_iwn = true 	&  mkgmap:option:jbmoptionhiking = true		{name '${jbm_route_ref_iwn|highway-symbol:round}' ; addlabel '${name}'}
+
+name = * & !(jbmnoname = true | jboutlineadded = true) {name '$(name)'}
+
+highway = * & ref = * & !(highway ~ '(motorway|trunk|primary|secondary|tertiary)') 	{addlabel '${ref}'}
+highway = * & int_ref = * 																									{addlabel '$(int_ref)'}
+highway = * & nat_ref = * 																									{addlabel '$(nat_ref)'}
+highway = * & reg_ref = * 																									{addlabel '$(reg_ref)'}
+
+#Limit artificial cycleways to resolution 24 and don't add housnumbers to non-routable
+mkgmap:synthesised = yes & mkgmap:bicycle = yes 				{set mkgmap:highest-resolution-only = true}
+mkgmap:synthesised = yes 	  													{set mkgmap:numbers = false}
+highway = * & !(mkgmap:street = *) 										{set mkgmap:numbers = false}		#The streetname could have been set in the inc/address
+
+#Debug logging
+#===================================================================================
+dbglevel = custom 																																														{set jbmecho = true}
+dbglevel = error 		& (dbgmsgcustom = * | dbgmsgerror = *)																												{set jbmecho = true}
+dbglevel = warning & (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = *)																			{set jbmecho = true}
+dbglevel = info		& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *)												{set jbmecho = true}
+dbglevel = verbose	& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *|  dbgmsgverbose = *)				{set jbmecho = true}
+jbmecho = true {set jbmdbgmsg = '$(dbgmsgcustom)' | '$(dbgmsgerror)' | '$(dbgmsgwarning)' | '$(dbgmsginfo)' | '$(dbgmsgverbose)'}
+jbmecho = true {set dbgcategory = '$(dbgcategory)' | '$(dbglevel)' ; delete jbmecho ; echotags '$(dbgcategory)'}
+dbgtrace = true	{echotags 'debug - trace - lines - finalize end'}

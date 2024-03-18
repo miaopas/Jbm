@@ -1,0 +1,12 @@
+﻿# Style options.
+
+#JB Since 21 July 2019
+levels=0:24, 1:22, 2:20, 3:18, 4:17
+overview-levels=5:16, 6:15, 7:14, 8:13
+
+#JB Since 28 Feb 2021 (Test for worldwide overview map)
+#levels=0:24, 1:22, 2:20, 3:18, 4:17, 5:16
+#overview-levels=6:15, 7:14, 8:12
+
+#Output extra tags when debugging with echotags even if they are not used in the style
+#extra-used-tags=sidewalk

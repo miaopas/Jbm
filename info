@@ -1,0 +1,1033 @@
+﻿#=======================================================================================
+#Jorisbo@hotmail.com
+#=======================================================================================
+#http://wiki.openstreetmap.org/wiki/Map_Features
+#http://wiki.openstreetmap.org/wiki/Standard_tile_layer/Key
+#		https://wiki.openstreetmap.org/wiki/SymbolsTab
+#		https://wiki.openstreetmap.org/wiki/LinesTab
+#		https://wiki.openstreetmap.org/wiki/AreasTab
+#https://github.com/gravitystorm/openstreetmap-carto
+#https://overpass-turbo.eu/
+#https://github.com/Jorisbo/Mkgmap-Mapnik-Style-Garmin
+
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#=======================================================================================
+
+#=======================================================================================
+Version history		 - Based on https://github.com/gravitystorm/openstreetmap-carto/blob/master/CHANGELOG.md
+#=======================================================================================
+20220803 Published 5.6.0
+- Color of trees and tree rows same as forest
+- Added amenity=parcel_locker
+
+
+20220722 Published 5.5.1
+ - Render mountain_pass=yes
+ - Render specific religions as default symbol instead of cross  (denomination = 'jehovahs_witness', 'la_luz_del_mundo','iglesia_ni_cristo',denomination = 'mormon'
+ - render building name before healtcare=clinic
+ - footway with access=destination should not be rendered differently then normal, only private & no: make them gray
+ - Use both Italian and German names in Bozen - Sud Tirol
+ 
+20220315 Published 5.3.1e
+- Stopped rendering tourism = information if information is not specified
+- Rendering highway=busway same as bus_guideway
+- Render golf green as pitch in stead of grass
+- New color for golf and miniature golf
+- Increased road_class for highway=bicycle & highway=path for better bicyle routing. Cars are not allowed anyway. Now they can compete with parallel roads.
+- Stopped using 0x1b as a ferry route, only use 0x1a. With 0x1b basecamp keeps refusing routing for bicycle on this kind of line even if bicycle is yes
+- Added ramp:stroller for bicycle access on steps
+- Improved unittests
+- Render bay on lower zoom 22 if only a point in stead of polygons rendered at 20
+- Render black higwhay lable instead of green park lable if both highway and leisure=park is tagged
+- Add size restriction for small closed contourlines area's to avoid cluttering of mostly rectangular contrours at mountain tops
+- A lot of access optimizatiosn for foot and bicycle and finetuning access-unit-test.
+- Decreased importance of tag car in access list.
+- Added lhv access tags
+- Fixed underscore typo barrier = handrail
+- Test country specific acces srules based on mkgmap adminlevel instead of country because country is not always available
+- Set routethrough flag for destination access, set resident access to be a destination access area
+- evaluate more footway & cycleway surface
+- Finetuning placenames, showing some earlier in different font sizes
+- Do not add name lables to polygon outlines such as sports pitches or indistrial areas. The polygon-fill still has the name
+
+20210815
+- Fixed typo in access in jbmbicyle
+
+20210806 Published 5.3.1d
+- Fixed bug duplicate section Muslim cemetry
+
+20210806 Published 5.3.1c
+- Reversed change where bicycle onew synthesized roads are created oneway. Too many warnings about roundabout flares
+- Fixed bug where steps where not checked for access making them always routable for bicycle
+- Fixed bug where bicycle was allowed on footway if paved. This should be country default
+- Fixed access bug where testing for sac:scale in stead of sac_scale
+- Fixed typo in unittest access_aisle
+- Finetuning foot access if sac_scale or hiking is set, should improve if general access resolves to no
+- Fixed typo in Ambassy > Embassy
+- Fix for large cemetries (res 18) only displaying correct on low zoom missing rendering for 22-24
+- Fixed intermittent wateways without the natural=water tag to still be rendered as intermittent
+- Fixed bug for intermittent wateways riverbanks still rendered as normal water because of yes/true mix
+
+20210603 Published  5.3.1b
+- Fixed typo in access for bridelway, should have been bridleway
+- Fixed glitches where man_made = pier or route = ferry did not process access rules for all vehicle types
+- Improved waterway length calculation to make sure long rivers appear on lower zoom
+- Renumbered error messages
+- Render museum instead of shop if tagged both
+- Added routable overlay on public transport platforms
+- Added extra access unittests
+- Finetuning on unittests
+- Stopped rendering the light pink background for military area's as this causes ugly results if on water and most of the time invisible anyway
+- Added bicycle access to unknown bicycle routes
+- Added bicycle access if access on shoulders is allowed
+- Added bicycle access to tracks where icn|ncn|rcn|lcn = yes without having a bicycle route
+- Allow bicycle on oneway highways if bicycle route and no specific bicycle:oneway denial
+- Default option optimized overview map at lowest zoom from 8:12 to 8:13 which is more nice
+
+20210223 Published 5.3.1
+- Adminlevel 8 first from level 20 in stead of 18
+- Fully redo place name rendering, implement capital=4/5/6/7 regardless of population	(Nancy/Metz/Verdun)
+- Retrieve population from administrative relation if specified (France)
+- Show large military area's lable first from 20 instead of 18
+- Show military danger area based on areasize
+- Fixed routing bug where tracks with access=no but bicycle/motor_vehicle=yes missed access attributes for routing
+- Use marina name derived from poi on level 24 instead of waterpolygon with names
+- Avoid names of very small water areas to pop-up at 22, water visible from 22, name at 24
+- Added again personal option to display names of Brussels area in dutch, to avoid long names
+- Show commercial as residential on low zoom
+- Display large gardens as green area on lower zoom
+- Don't show small natural reserve on 16
+- Added debug options to find barriers on hiking & biking routes which do not have access values set for foot or bicycle
+- Finetuning on poi's shown for smaller areas by using different areasize for poi's and area's
+- Added access translations for values assigned to 'bike', 'speed_pedelec', 'car' and 'hvg'  which are non official wiki vehicletypes but more often used
+- Lots of extra unittests and finetuning on odd access handling
+- Redo access handling, all barriers without explicit access do now enable routing instead of blocking (too much work to edit osm data)
+- Fixed bug in access handling for foot if sidewalks available
+- Finetuning on access and access translation values
+- Added access for bicyles on steps if ramp available
+- Finetuning oneway:bicycle also allow if dismount, -1 or tolerated
+
+20210131
+- Only natural = saddle if poi
+- Added steps with foot=no to unittests
+- Moved embassy to office with diplomatic = embassy|consulate, added icons in office colors
+- Added historic = boundary_stone as personal feature
+- Display minroundabout same as turning circle
+
+20200630
+- Render power = generator  before man_made = tower
+- Render prison on low zoom as residential
+- Do not render marketplace node if tag building = *
+- Also render power = substation if not derived from area
+- Draworder Parking  > large Sportspitch
+
+20200626
+- Render highway = services same as highway = rest_area. Somewhere this rendering is accidentially removed  probably when re-doing highway=service
+- Rare cases, avoid bicycle on node-barriers with also highway = steps where previous change did allow biking on all barriers
+- Max-nodes test full-europe map ok for 1.700.000 / 1452 tiles / 12.0 GB . When using 1.800.000 there is one tile in Denmark not calculated
+- Do not render man_made = pier if also tagged as leisure = fishing
+- Render historic = archaeological_site before place = locality
+- Do not render leisure = track on natural = water
+- Thinner lines for highway=service and route_from_relation on lower zoomlevels
+- Differentiate tidal wetland for underlying sea and land
+- Render some wetlands blue if on sea or water and green if on land
+- Fixed bug for adminlevel and place ~ islet  and farmland after converting to regex
+- Do not render pitch outlines if seamark:typ is set, added exclusions to all equations
+- Do not render ice_rink outline if landuse=grass
+- Render missing motor_cycle parking outline
+- Render taxi area same as parking areas
+- Removed render for parking = surface, must be combined with amenity
+- Draworder garden > farmyard
+- Draworder small school area > large forest
+- Avoid underwater tunnels fto be rendered
+
+20200623
+- Fixed bug in unittest if highway=service and area=yes and relation is hiking-route . Used  continue with_actions to keep the variable for later use
+- Fixed missing man_made = pier if area = no
+- Add outline to man_made = water_works treating it the same as wastewater_plant
+- Fixed non routable pedestrian square if tagged as man_made=pier
+- Do not add routable overlay for tracks if unaccessible anyway
+- Added missing linetypes for living_street if private and do not add routable overlay if unaccessible anyway
+- Added turningcircle for livingstreet in correct light gray color
+- Fixed wrong green background color for natural = wetland if also tagged as waterway = riverbank, should be blue
+- Fixed problem introduced in previous version where residential was too often rendered as high draworder hiding too many other features
+
+20200622
+- If barriers have unknown access then add yes for foot/bicycle to avoid routing problems
+- Fixed bug where landuse = residential was not rendered when also having boundaries, ending up with a boundary only
+- Don't render boundaries if not created with the mp_created , these are orphaned pieces of boundaries which actually should have been removed form osm
+- Fixed bug in shop=alcohol and shop=bakkery after converting to regex
+- Different symbol / color fo shop = art and tourism = gallery
+- Fixed typo in shop = video_game(s)
+- Only render undeground parking symbol if  parking = underground
+- Render tourism = attraction before man_made = cross or historic = wayside_cross
+- Render tourism = attraction before barrier = gate
+- Render historic = archeological_site before tourism = information
+- Hide undeground parkings and parking places
+- Render highway = footway before man_made = pier
+- Draworder  small sportspitch > parking
+- Again add oneway arrow i access = destination after removing it eralier
+- Added missing unclassified/residential/service road on zoom 24 in rare cases where the road is non-routable/nonaccessible but not because of access = no/private
+- Also render sportspitch outline in relations file if highway = yes. I expect unexpected 'errors' from this change which should then be solved in the lines file. 
+- Use smaller linetype for cutline at lower zoomlevel, moved linetypes to 0x10e1c
+- Avoid rendering tourism = viewpoint in man_mande = tower
+- Draworder leisure = stadium > 	landuse = farmland
+- Draworder aeroway = terminal > aeroway = apron
+- Fixed bug in aeroway = terminal using 0x3b00 instead of 0x3b
+- Forced draworder of costructions in areoways
+- Render airport on low zoomlevels as dark residential and later as airport
+- Fixed typo in artwork_type = bust
+- Draworder market_place > leisure = park
+- Do not render proposed public_transport = station
+- Draworder golf = bunker > landuse = grass
+- Render golf = bunker before natural = sand to assure draworder
+- Landuse = construction >industrial if smaller in size
+- Merged university and schools into one, used the free university 0x09 to be smaller areas on higher draworder if within industrial areas or parks/recreation ground
+- Render landuse = farmyard before man_made = wastewater_plant
+- Do not add motorcar as next default access for hgv or bus if hgv or bus are not specified. If access = unknown and hgv is not specified and motorcar = no then hgv still has access which was set to no
+- Do not render public_transport = station building if amenity = bus_station
+- Render small pieces of grass on top of parkings
+- Draworder playground > forest
+
+20200607 Published
+- Added exclusion for rare highway = track & leisure = outdoor seating
+- Introduced new place poi 0x07 for neighbourhoods to be large visible at high zoom and highlights city quarters
+- Switched lines 0x10594 - 1x1010e
+- Added extra thin linetype for zoo and switched lines
+- Switched lines cyleway zoomlevel 0x10505
+- moved inaccessible stairs to new linetype 0x10d19
+- Fixed swamp not rendered correctly on lower zoom
+- Changed swamp fill to double trees, this was a mapnik change of long ago which i did not understand until now
+- Fixed bug where wetland without double layer was visible at 24 where it should stopped at 20 giving space fo the double fill
+- Allow highway = track in combination with leisure is track by adding routable overlay
+- Show swamps at lower zoomlevel by adding jbmareasize
+- Display water and wetland labels at lower zoomlevel
+- Fixed bug where names of natural reserves are not shown
+- Access handling, removed also exclusion for trucks if motorcar=no and toll=yes. Unittest pointed out its intentially and correct used for tol_gate lanes 
+- Removed depricated aeroway = airport and only use aerodrome
+- Render aerodrome based on iata tags on lower zoom
+- Solved typo in de word reservoir
+- Do not render names on water of type river , treat it the same as riverbank which derive the name from the line
+- Render names for natural reserves, solved bug
+- Shifted rendering names for large water aereas
+- Do not show fuelstation names on low zoom
+- Only render powerlines at 24 not at 22 anymore
+- More admin levels on lower zoomlevel
+- Redo water areas on lower zoom
+- Changed draworder of religious area from 24 to 2
+- Adjusted symbol for saddle
+- Fixed bug typo jbareasize instead of jbmareasize
+- Add native tunnel for residential, unclassified and service same as motorway for less cluttering
+- Moved all tunnel codes to new series 0x1040* also the existing ones to keep them together
+- Fixed typo in secundary/secondary
+- No Rendering of highway = racepiste if area
+- Added road lables for tracks
+- Removed rednering for waterway = stream and tunnel = building_passage
+- Fixed bug not rendering highway = service areas anymore since highway renewal changes
+- Added border around service and area
+- Switched objects for retainingwall and waterslides
+- waterway = stream and natural = water area should be water instead of stream outline
+- Fixed missing castles if casteltype was differenet then known types
+- Added turning_circle in the right color for track and white roads with the new function mkgmap:from-node:highway
+- Draworder scrub > recently added military/police
+- Smaller lables for small bare-rock and larger for big areas drawn on low level
+- Finetuning combination of beach, sand, rock, stones
+- Changed rocky sand overlay to be more dark
+- Updated pipeline symbol to be more transparent and less black
+- Better draworer calculation for scrub, gras and forest on top of pitches, powerplants and industrial
+- Render background for man_made = works if also landuse = industrial
+- Render man_made = bridge & highway = pedestrian	as pedestrian and not as bridge
+- More finesse in white highway line thickness on different zoomlevels
+- Render onewway arrows for cycleways
+- Render left side arrows for drive_left countries
+
+
+20200522 Published
+- Usage of new feature is_in(building '*', any)  instead of named values
+- Secondary highway onlevel 18 as thin dark line instead of thick yellow
+- Shfted jbmareasize from start at 250.000 to 125.000 to have more landuse starting to be visible solving gaps
+- Do not render certain landuse lower dan 18 if on top of residential anyway
+- visual adjustements to width of livingstreet and pedestrian street
+- New (duplicate) ferry terminal poi for lower zoomlevel to avoid showing lables and made fontsize of the original level24 one to be small
+- Less prominent nature reserve borders for small areas on low zoom
+- Again show light green backcolor for nature reserve on low zoom but now excluded if is_in(sea) :-)
+- Show sports centre on low zoomlevel as grey background instead of green
+- Removed oneway from motorway, trunk, primary and secondary and only show for the link-versions
+- Avoid buildings with a tunnel tag to be rendered as tunnels instead of buildings.
+- Avoid trams & railway with a building tag to be rendered as rails instead of tunnel
+- Removed 0x17 and 0x68 as grass polygon. Now 3 left on low,medium and high draworder (0x41, 0x2c, 0x2a)
+- Removed disused polugon 0x6e (depricated hedge fill) from typ
+- Moved motorway exit from 0x20 to 0x2802 to be able display of small caps
+ 
+20200520	Updated up to changelog 5.2.0
+- Added rendering for man_made = goods_conveyor	 [0x10c0d resolution 24]
+- Removed area rendering for tracks, residential and unclassified
+- Render waterway = canal & tunnel = flooded as tunnel instead of canal
+- Removed rendering for nature_reserves with protect clasess 7, 24, 97, 98, 99
+
+20200519 Major improvements
+New features
+- Added bicycle routes overlays as additional option: use --style-option=jbmoptionbicycle
+- Moved some personal rendering behind the  option: --style-option=jbmoptionpersonal	for rendering of ruins and via_ferrata
+- Introduced option for enabling debugging:  style-option=jbmoptiondebug
+- Introduces option jbmoptionfixme to add symbols for osm fixme requests
+- Show waterways based on their full relationlength if available
+- Created full covering of access and vehicle restrictions
+
+Improvements
+- Re-organised include files to better distinguish what is supposed to reflect default style and what is added
+- Code cleanup, aligning and removing spaces, removed old comments and translated as much as possible to English
+- Fully rely on own relation file in stead of mixed default and own.
+- For now only use the following include files form the mkg default
+		- inc/address
+		- inc/access_country
+- Allow combination of leisure = slipway and highway=footway
+- Moved citygate to number 0x6806
+- Moved audioguide from 0x6515 to 0x6519
+- Moved bureau de change from 0x5901 to 0x2a17 to be less prominent 
+- Render a lot more polygons and landuse based on the jbmareasize calculation for nice zooming on different levels
+- Moved the private lines for tracks and footways from 10a0c to 10d14 to be grouped together with the new inaccessable motorway's
+- Introduced new polygon 0x59 for ice-rink instead of re-usage of glaciers
+- Render buildings first in stead of last makes a lot rules more simpel
+- Added some French translations
+- Only render private parkings if not underground
+- Do not render parking entrances if private
+- Fully redo logic for tagging paved / unpaved based on known surface types in stead of mop-up rules
+- Try to never overwrite osm tags during the rules processing keeping osm tags as original as possible by using only new (jbm)variables (preperations for better unittesting)
+- Removed dutch building BAG rendering and made it generic for all buildings
+- Removed depricated waterway = wadi from lines
+- Removed earlier depricated power=station from points
+- Switched to regex for most of the multiple equations
+- Created unittest to filter out accidentially missed or wrong results in access and routable lines.
+- If healthcare combined with office = * then office goes first
+- Do not render natural = sand in leisure = playground
+- Render hotel before restaurant
+
+Bugs
+- Places must be rendered at 24 to enable street search, but use blanceo poi for large cities at zoomlevel 24 to avoid them occupying the screen.
+- Added forgotten castletype -defensive as 0x6805
+- Do not render beach & shoal if tagged as seamark:type
+- Do not show track-outline on sportspitches if also tagged as leisure = track
+- Fixed bug where larger areas of natural = grassland and wetlands where not visible on low zoomlevels as green background
+- Solved typo's in dutch and french translations
+- Added missing rendering for boundary = protected_area in relations-file if it is a multipolygon
+- Fixed missing background area for saltmarsh
+
+Visual
+- Render some towers, obelisk and hunting_stand on earlier zoomlevel because they are used in areas less rendered and there they are more a landmark
+- Render place_of_worship from 22 instead of 24
+- Add new series of religion's  to be displayed at lower zoomlevel
+- Smaller line-width for natural boudaries on lower zoomlevel
+- Smaller linewidth for tree-rows
+- Removed highway importance rendering for tracks and paths based on highway length. It gives too many gaps where highways are chopped in smaller pieces.
+- Instead render all highways at least at level 20 if used in walking/biking network they are displayed eralier. Therfore introduced linetypes for pedestrian at lower zoomlevels
+- Render motorways | trunks| primary and secondary also with the dashed layout if private or no access
+- Introduced small lable for sports_centre if poi ony and not derived from area 0x6515
+- Pixel smaller for living_street and pedestrian street so they are not bigger then primary
+- Additional lines for highwayss on the smaller soomlevels
+- Don not show pitches, sportscentre and playground outlines if located in a building or pedestrian area, possible with new 4485 IS_IN() function 
+- Slightly smaller symbols for entrances
+- Smaller railwaystation font on low zoomlevel
+- Lighter green color and smaller dots for alottements
+- Also show dogpark symbol if derived from area
+- Render both historic=citywalls and buildings if combined
+- Render fire station from 22 instead of 24 same as police
+- Show trunk and motorway highway tunnels on lower zoomlevel as normal thin highway lines to avoid gaps
+- If natural = tree together with amenity = place of worship or tourism = artwork continue to show both poi and tree
+- Removed rendering for depricated highway = minor, highway = unsurfaced
+- Render fule-stations from 22
+- Avoid tourist ferries where no cars are allowed to be visible on 20 or 22 even if they are pretty long
+- Do not render pitches or playgrounds within buildings
+- Do not render small solars within bigger powerplants
+- Show underground trainstation with building tag as dark brown instead of normal building
+- No steps on pedestrian area
+- No commercial area outline on pedestrian area
+
+Routing
+- Reversed some changes of previously published 5.1.0 because it created some routing issues, yet to be tested first
+- Improved long distance routing by adjusting road-classes
+- Improved long distance routing by adding missing roudnabout junctions for primary_link, tertiary_link and secondary_link
+- Major routing improvement by evaluating all the access-tags before setting the highway type. If no transportation type is allowed anyhow then
+		now the the road is of a non routable type in the first place (for a small country like belgium it eliminates 32.000 roads to be inaccesible
+- Add routable overlay on man_made=pier to enhance routing through ferry for pedestrians and cyclists
+- Add routable overlay on leisure = track if also taged as highway=foot to enable routing
+- Fixed bug where residential and unclassified round-abouts generated a double overlay
+- Fully redo access tagging, making sure all mkgmap:<transport> tags are explicitly set and so don't fall back on uncertain defaults, ends up very nice :-)
+   This Introduces a new  access file. Covering almost 99,99% of all tagging. Also for emergency hgv, psv, bus, taxi and toll flags
+   Correct handling for barriers and highways. This should improve routing a lot.
+- Do not add automatically trunk oneway = true, causing problems in less mapped areas
+- Adjust road_speed and road_class for usages of the 0x0a overlay and living street
+- Made highway = bridleway routable (somehow never been that way)
+- Made highway = guided_bus routable for psv
+ 
+20200416
+- Modified line for embankement in typ
+- Fixed bug where marina's did not have watercolor if only tagged as waterway = dock and natural = water was absent
+- Only render poi names of construction areas at 24 in stead of 22
+- Smaller rendering of school labels for kindergarten and on lower zoomlevels
+- Only render natural = pond names as poi and not as area-name because they may overull the more important 'name of the park' they are in
+- Render hospital areas as small dot instead of full icon on low zoomlevels and do not render hospital poi at low zoomlevel at all
+- Treat reedbed same as wet_meadow creating green background
+- Fixed bug where streets and housenumbers of bigger cities where not searchable because of the poi was not visible at level 24
+- Merged inc/places into poi file
+- Merged inc/bag into poi file
+- Added the building type as building name if nothing else is available so you can determine the kind of building bij clicking on it
+- Moved Supermarket poi from 0x5a03 to 0x3000 To enable adreslables on the poi
+
+20200330 Updated up to changelog 5.1.0
+- Add rendering natural = ridges and aretes
+- Add rendering for leisure = water_park same as sports_centre
+- Removed rendering for power = sub_station and power = station  (depricated)
+- Render power = plant same as power = substation
+- Removed rendering for information = tactile_model
+- Remove icon for shop=ice_cream
+- Add rendering for man_made = pipeline when overground or bridge, update line symbol in typ
+- Add rendering for landuse = salt_pond
+
+20200330
+- Moved healthare = * to poi 0x5002 because 0x4e04 did not show anything
+- Fixed bug/typo basis = detention should be basin = detention
+
+20200318 Updated up to changelog 5.0.0
+- Removed overlay for natural = sand
+- Removed rendering for power=cable where location =overhead, =overground, =surface, =outdoor and =platform
+- Draworder park 0x1e > residential
+
+20200311
+- Lighter brown color for terminals and churches
+
+20200130 Updated up to changelog 4.25.0
+- Removed rendering of man_made = embankement and man_made = kerb
+- Removed area fill for hedges and kerb
+
+20191210
+- Added border around leisure = fitness_centre | leisure = fitness_station same as leisure = stadium
+
+20191017
+- Also render place, town if derived form area
+- Render suburb same as town instead of hamlet
+
+20190829 Updated up to changelog 4.22.0
+- Removed depricated rendering for natural = marsh
+- Stopped rendering for shop = yes
+- Render shop = mall same as retail
+
+20190720
+- Fixed bug in checking cycle routes, so cycleways belonging to a cycle_route are now displayed earlier
+- Do not show paths & tracks if length smaller then 300m on low zoomlevels except if part of a hiking route relation
+- Changed outlinecolor for themepark, and zoo from brown to purple on lower zoomlevel
+- Changed linetype for zoomlevel tertiary & unclassified
+- Introduced new zoomlevel for large waterways for smaller blue lines
+- Show large rivers at zoomlevel 16 if large then 7km in stead of large then 10km
+- Changed rendering of placenames, avoiding displaying small state capitals on low zoomlevels
+- Added name and ele to amenity = shelter
+- Prefer forest before powerplant
+- Adjust color themepark on low zoomevel from brown to new purple color
+- Themepark on resolution 20 as single line
+- No waternames on resolution 14
+- Show cities and towns on resolution 17
+- Country borders smaller
+- Region labels smaller
+- Treat landuse = basin and reservoir same as natural = water also implementing visibility at zoomlevels correctly
+- Added lable for sea
+- Change on country border width and display on zoomlevels to avoid overlapping admin_levels
+- Changed size for displaying sportscentre to be only visible if zoomed in 
+- Draworder small park > farmland
+- Draworder small water > forest
+
+20190621
+- Draworder electrical plant > vineyard
+- Made path and tracks visible from 22 in stead of 24. Paths and tracks as part of a route are now visible from 20
+- Added healthcare = clinic | en healthcare = pharmacy
+
+20190603
+- Render cape & straits on lines only in the mid-point
+
+20190211 Updated up to changelog 4.20.0
+- Removed rendering for leisure = common
+
+Other changes
+- Removed length as parameter for showing railways on lower zoom levels
+
+20190103 Updated up to changelog of 4.19.0
+- Added rendering for vending machines, because of similarity and not many free icons left its only one symbil instead of three
+- Added barriers full-height-turnstile, kissing_gate and motorcycle barrier
+- Change tourism color from #734a08 to #660033
+- Change construction=null to render like construction=unclassified 
+- Render tourism = attraction as dot
+- Added rendering for boundary = protect_area
+- Amenity_shelter, leisure_picnic_table ,waste_disposal, waste_basket, amenity = bench to color man_made grey
+
+Other changes
+- Islands lables in grey in stead of black
+- Draworder forest > Large park
+- Also show natural = scrub if landuse = *
+- Added outline and name for man_made = wastewater_plant same as industrial
+- Show small landuse = forest form 22 in stead of 24 to avoid areas with transparent trees only
+- Shuffeld barriers to 0x69xx to free up space in the popular poi area except for pillar and gate becaue they easily cause cluttering
+- Changed symbol color of barriers to more dark #3f3f3f
+ - Stop redndering military = airfield
+ - Continue on barrier = chain
+ - Differentiate symbol for weir and dam
+ - Differentiate intermittent river/wadi and stream
+ - Moved ford/steppimg stone to different poi and visible on lower zooomlevel
+ - Added mkgmap:city name to landuse=residential areas
+ - Added lables to some religious buildings
+ - Changed color of some religous symbols to #000000
+ 
+20181217 Updated up to changelog of 4.18.0
+- Removed rendering for depricated power:source = wind
+- Added rendering for natural = cape
+- Changed color of scrub to c8d7ab
+- Changed symbol for arts_centre, man_made = storage_tank, silo, restaurant and slipway 
+- Changed icons and colors for health care symbols and added healthcare lables
+- Changed color for man_made icons from 555000 to 666666
+- Added man_made = crane
+- Added  rendering for leisure = ice_rink
+- Added  rendering for shop = carpet  and shop = fabric
+- Changed allottements color to grass green
+- Added renderig for artwork_type = buste
+- Draworder small woods > park
+- Highway service area > Scrub
+
+Other changes
+- Added rendering for natural = strait
+- Changed color for nightclub back to amenity brown
+- Fixed bug for missing casino
+- Also render elevators on area's
+- If fuel name not available then use operator name but do not show both
+- Render polygon highways before polygon amenities, moved section up in polygon file
+- Render pedestrian areas always, so dont exclude if level = 1, 2 or -1
+- Don't render country name and name for ambassy but only the name
+- Increased size of 'small' grass from 100~400m2 to 200~800m2
+- Modified icon for bed and breakfast
+- Added outline for farmyard
+- Modified colors for commercial, idustrial and other outlines 
+- Fixed bug artwork = statue should be artwork_type = statue
+
+20181124 Updated up to changelog of 4.17.0
+- Added rendering for barrier = stile and barrier = cattle_grid
+- Added rendering amenity = internet_cafe
+- Added man_made=telescope and different tyoes
+- Added rendering for leisure = track if line in stead of polygon (backlog of 4.16.0)
+- Added rendering for power=insulator and power = portal
+- Added rendering for different memorial types
+- Added rendering for public bookcase
+- Lighter grey color for place of worship landuse
+- Added intermittent criteria basin = infiltration & detention
+- Added rendering for parking_entrance
+- Added leisure=fishing
+
+ Other changes
+- Slightly modified icon for phone
+- Removed double colors from some amenity and car icons
+- Amenity = shelter before leisure = birdhide
+- Added rendering names for scrub areas same as forest
+- Draworder minigolf > meadow
+- Added some lables to amenity poi'same
+- Introduced new polygon for very small forest areas to improve draworder
+- Changed draworder for powerstations on top of parkings in parkings on top of powerstations
+- Render shop=mall if poi only and introduced new poi for mall with small font
+- Simplified inc\place by first removing all place=* without a name tag
+- Disabled lable rendering for pedestrian squares polygons and added poi instead to avoid names on small areas
+- Made icon for silo smaller to avoid cluttering
+- Shifted bowling icon for better name rendering
+- Lighter borders for natural reserves on high zoomlevels
+- Aded rendering for highway = unclassified same as service (0x62)
+- Render poi shop before landuse = retail
+- Draworder tidal higher then beach
+- Only render ferry symbol if ferry terminal and not if public_transport & ferry only
+- Slightly changed color of lables for school and education
+- Extra pixel width for major roads and primarys in tunnels
+- Extra white space on some amenity icons when they also have a lable
+- Added lables to bank/atm symbols and removed operator from the name
+- Moved rendering for sand names to beach-poi instead of polygon name
+- Show swimmingpool icon instead of building name
+- Render fountain before leisure = playground
+- Changed lablecolor for marina to purple in stead of blue
+- Fixed bug shop = musical should be shop = music
+- Render lables for natural = scree & natural = shingle same as natural = rock
+- Draworder quarry > park
+- Fixed bug missing bridges overlay on highway = secondary
+- Not rendering steps if area = yes
+- Add rendering landuse = retail if point in stead of area buy use smaller font 
+- Added lable to landuse = village green
+- Render point tourism = chalet before leisure = recreation_ground
+- Don't render building name on poi if also unknown amenity is set (building = yes & amenity = public_building) https://www.openstreetmap.org/#map=19/51.15806/2.76709
+- Render building name in stead of landuse = retail
+- Introduce small found for leisure = nature reseve if poi only
+- Don't render indoor entrances
+- Don't render outline for indoor sports_centre
+- Darker orange color for primary highway in construction
+- Moved railwaycossing to garmin default 0x6406
+- Moved lable for allottements to 0x3b0b
+- Moved lable sportspitch to 0x3b0c
+- Moved several lables to higher hex-codes to free up hex-codes only visible at high zoomlevel
+- Render all icons for shop  begore lable landuse = commercial and landuse = industrial
+- Introduced relation routes to indicate longdistance cycle and hike routes to be displayed on lower zoomlevels
+- Render elevation hights on guideposts
+- Added new river linetype for lower zoomlevels to be thicker then streams
+- Removed lable for scrub on polygon object, use lable of poi instead
+- Rendering leisure = track on 24 in stead of 22
+- Changed lable color for service roads to dark grey
+- Show streets on zoomlevel 20 with smaller width introducing new linetype
+- Implemented generic technique  for object size, fontsize  and resolution filtering, will be used in the next generation
+- Fixed bug no lable on waterfall
+- Only show waterslides at 24 in stead of 22
+- Rendering tourism = alpine_hut before amenity = restaurant
+- Added elevation height to alpine hut and aerialway station
+- Don't render waterfall if building, for both line and poi
+- Moved storagetank/silo to poi only visible on 24 to avoid cluttering
+- Draworder beach > sea
+- Removed place = islet for rednering on lower zoomlevels
+? Place = island names rendering also if just poi
+- Moved taxiway to different linecode
+- Added rendering highways on zoomlevel 20 with own set of highways for better zoomlevel rendering
+- Don't render playground if area = * but not area = yes rare situation
+- Render platforms with highway = footway as a pedestrian square in stead of platform		
+- Draworder sports_centre higher then school
+- Render pedestrian roads on lower zoomlevels as thin lines
+- Hide motorway_links on lower zoomlevels
+- Hide pedestrian area borders on lower zoomlevels
+- Hide railways under construction at lower zoomlevels
+- Slightly darker color for fences
+- Don't render outlines add lower zoomlevels
+- Add lable on gas station
+- Removed lable from ford
+- Moved away hospital poi for hospital to non-garmin default to be visible at lower zoomlevels
+- Added intermittent criteria seasonal = spring, summer etc
+- Slightly modified bel tower icon
+- Shifted all dotted lines to start with white/transparent , looks better on very short lines
+
+20181019 Updated up to changelog of 4.16.0
+- Added rendering for leisure = swimming_area
+- Changed color for schools and hospitals
+- Added rendering for amenity = vehicle inspection
+- Added rendering for tourism = gallery same as shop = art
+- information = tactile_model from board icon to map-icon
+- Changed color of Apron from purple to grey
+
+Other changes
+- Added lables for fountain
+- Introduced new park polygon for smaller parks to have higher draworder
+- Don't fill hedges if area not yes
+- Render hedges with landuse = garden as hedge areas instead of garden
+- Don't render underground public_transport = station
+- Render highway = pedestrian before landuse = residential
+- Render artwork before fountain
+- Add lables and translations for casino, cinema and theater
+- Added translations for German and French
+- Render building lable before leisure = stadium
+- Switched back rendering of indoor = yes and tunnel = yes where previously decided to avoid cluttering, Subway railways and pedestrian tunnels are now visible again
+- Fixed office names not rendered if they have a housnumber
+- Changed tourist info 'i' from brown to dark gray
+- Added translations for different towers
+- Render leisure = park before natural = wood
+- Fixed typo in amenity = child_care should be amenity = childcare
+- Show buildingnames on building = * in stead of building = yes
+- Draworder landuse = construction > landuse = forest
+- Render lable for man_made = works same as industrial
+- Added rendering outline for man_made = works
+- Render builindg name before man_made = works
+- Render sports_centre with building lable if building = *
+- Render large swamps at lower draworder using 0x41 in stead of 0x68
+- Render building lables before landuse = commercial
+- Render man_made = tower before leisure = sports_centre
+- Render hedge with natural = scrub as hedge in stead of scrub
+- Draworder commercial area > park
+- Also show railway platforms if not tagged with public_transport
+- Slightly increased size of bollard icon
+- Slightly decreased width of stairs and steps
+- Same color for steps, walking paths and via-ferrata
+- Highway residential extra pixel width
+- Don't render barrier = block if its a line
+- Introduced different type of 0x10 for highway= road to distiquish from pedestrian
+- Draworder retail > recreation ground
+- Render polygon name for power=plant before landuse=grass (buggy situation where green grass area has purple industrial name but the same as mapnik carto)
+- Added lable for polygon natural = grassland same as other green areas
+- Draworder university > residential
+- Stop rendering of border_control
+- Draworder tidalflat > meadow
+- Synchronised purple lable and icon colors for ferry, airport and heli
+- Added missing rendering for poi aeroway = gate
+- Render man_made = breakwater before natural
+- Fixed bug man_made = breakwater not also rendered as polygon
+- Draworder normal Scrub > scree
+- Changed icon color of spring to water blue in stead of tourism blue
+ - Stop rendering bay, marina, island and all other land area's (0x27)  they are already in the background
+- Continue on man_made = embankement if also tagged with natural and landuse to ensure filling if it is a polygon 
+- Fixed bug new massage poi having icon for butcher (different kind of meat :-)
+- Fixed error of unknown icon type moving bureau_de_change to 0x5901
+- Increased draworder for village_green > sportspitch (trivial)
+- Changed color for school names to brown
+- Rendering Tower:construction before tower:type
+- Only show blue water basin if not building
+
+20180922 Updated up to changelog of 4.15.0
+- Changing color for gastronomy to orange
+- Changed farmland and social amenities color
+- Render man_made = wastewater_plant and man_made = water_works  the  same as industrial
+- Added icon for man_made = storagetank and silo
+- Added icon for bicycle repair
+- Added icon for leisure = amusement_arcade
+- Added icon for shop = bookmaker
+- Added icon for shop = trade and shop = whole_sale
+- Added rendering for line water_slide (ignoring bridges and tunnels)
+
+Other changes
+- Switched slipway to garmin default
+- Switched golfcourse to garmin default
+- Switched entrances to free space for other garmin defaults
+- Switched lable building to Garmin default
+- Switched pharmacy to default garmin
+- Switched bus_station to garmin default
+- Switched ferryterminal
+- Switched beach resort to garmin default
+- Updated icon for slipway
+- Only show building names if building = yes instead of building = *
+- Only show mall if it has a name otherwise don't show it as unspecified shop
+- Increased draworder construction > urban area
+- Increased draworder pier > swamp
+- fixing error where multipolygon recreation_ground was not filled
+- Simplified rivers & streams, making rivers wider
+- Updated icon for shop = doityourself
+
+20180922 Updated up to changelog of 4.14.0
+- Added icon for leisure = bowling_alley
+- Added  icon for leisure = outdoor_seating
+- Added  icon for leisure = bird_hide
+- Added  icon for shop = video
+- Added icon for shop = paint
+- Added icon for shop = massage
+
+20180922 Updated up to changelog of 4.13.0
+- Added shop = ticket
+- Added shop = houseware
+- Added shop = charity
+- Added shop = second_hand
+- Added shop = interior_decoration
+- Added amenity = bureau_de_change
+- Added amenity = casino
+- Added amenity = boat_rental
+- Changed icon shop = department store according to other shopping bags
+
+20180622 Updated up to changelog of 4.12.0
+- Added extra mast and tower types
+- Added extra touristinfo maps and audioguide types
+
+Other changes
+- Fontcolor vulcano in red
+- If construction do not allow foot or bicycle access
+- Set access to yes tbicycle = yes & access = no) to enable bicycle routing
+- Make access = destination routable by adding overlay. If  access=no or access = private then no routable overlay is added
+
+20180518 Updated up to changelog of 4.12.0
+- Changed color for amenity = shelter to brown
+- Add rendering power = cable same as power = line
+- Add rendering for historic = city_gate
+- Differentiate guide posts from tourist info
+
+Other changes
+- Fixed error primary_link in tunnel wrong color
+- Fixed wrong outline ]color for leisure = sports_centre (color recently changed in mapnik)
+- Same renderig for tunnel = yes and covered = yes
+- Render landuse = * before natural = sand
+- Draworder village green > park
+- Aquarium and building should be labled as building
+- Removed rendering for amenity = car_sharing
+- Switched town_hall and other symbols to their garmin default
+- Added fine_gravel and others as a possible beach surface
+- Changed lablecolor for bridges from building style to street style
+- Draworder allotements > park
+- Introduces symbol for limited access bicycle parking
+- Removed all the default names for wc, tram etc, because typefle is necessary anyway and will give all items a name
+- Added lable for highway = rest_area same as highway=services
+- Show zoo border in stead of barrier = fences
+- Simplified tunnel rendering making building passage the same as tunnel = yes, skipped 1000e and 1000b
+- Added outline rendering for inner/outer multipolygon sports pitches, tracks and nature rerserve
+- Switched lines to their Garmin default code
+- Thinner runway line on lower zoomlevels
+- Added lable for landuse = construction
+- Render tram_stop regardless of the public_transport tag
+- No oneway arrows if tunnel = building_passage |access = customers
+- Stopped rendering for amenity = casino
+- Fxed error where conversion of path to cycleway should  not be done if area = yes
+- Added lable to sping poie
+- Added lables to buildings if addr:housename is valid
+- Introduced draworder for large wood and small urban areas
+- Added elevation height to guidepost if available
+- Barrier = hedge & area = yes is rendered before leisure = garden
+- Render amenity poi before man_made
+- Display names in service areas
+- Hide lable on spring if only $ref exist
+- Fixed bug missing poi for sports_centre if not derived form area
+- No police outline if fixme
+- Removed amenity = swimming_pool only use leisure =  swimming_pool
+
+20180518 Updated up to changelog of 4.11.0
+- Lighter dark gray color for trafic light to make them less obtrusive
+- Changed linetype for man_made = pipeline, final rendering when released
+- Added rendering for amenity = bus_station
+- Added rendering for amenity = taxi same as parkings
+- Stop rendering railway platform if underground or within tunnels/covered or buiding_passage
+- Changed spring icon from blue-s to blue circle
+- Repaired accidentally deleted man_made = bridge
+- Added rendering for waterfall
+- Added rendering for symbol amenity = driving_school same as shop
+- Added poi renderering for amenity = nursing_home & amenity = childcare
+- Added Rendering for area amenity = fire_station & amenity = police
+- Stopped rendering for landuse = farm
+
+Other changes
+- Render natural = water as building if building = *
+- Changed highway = road from 0x06 to 0x11
+- Show barrier = kerb if length() > 15m in stead of 30m
+- Prefer building before landuse = garages, landuse = commercial, landuse = retail, man_made = bridge, man_made = pier
+- Changed wrong symbol for castle_type = fortress
+- Bug leisure = birdhide shoud be bird_hide but then still it was actually not rendered at all by mapnik, so removed
+- If railwaycrossing is a line in stead of poi then only render the middle point as a crossover
+- Fixed bug where tunnel = no was interpreted as a yes by using tunnel = *
+- Render subway and highway combination same as tram & highway
+- Added rendering for wadi with new wide dashed linetype
+- Render places before historic
+- Display parking_aisle as normal road in stead of tunnel like road
+- Added rendering canal and culvert = yes same as tunnel = yes
+- Prefer amenity=marketplace before place=square
+- Render seasonal waterways same as intermittent also for waterway = ditch
+- Always render railway = station regardless of building tag
+- Render aerialway = station and public_transport = station as dark brown instead of building color even if building = yes
+- Improved rendering for entrances, extending to stairs, service, home and 'yes'
+- Optimised rules for highway = construction
+- Exclude bridges on man_made = pier
+- Explicit rendering for bridge types instead of the wildcard bridge = *  to avoid bridges appear on exotic highway tags
+- Added some extra transparent whitespace around symbol icons with lablenames for better readability
+- Only show natural = peak on level 24 if doesn't have a name
+- Stopped rendering for community_center / shop = garden_center / leisure = sports_center use only the *_centre equivalents
+- Only render sports_centre if retrieved from polygon not if poi only
+- remove oneway from foot and pedestrian
+- Only display highway = path as bicycle or = horse if designated to cycleway or bridleway and not if permissive or official
+- Stopped rendering for amenity = supermarket
+- Switch poi for pcinic to Garmins default
+- Switched poi for supermarket to be visible at lower zoomlevels
+- Remove abandoned railways more intense to avoid other tags like 'ford = yes' to be still rendered if combined
+- Render leisure = water_park & natural = water as swimming pool instead of natural water
+- Made Icon for camping and supermarket less prominent 
+- Added lable for wetland
+- Fixed bug not rendering of default wetland if de wetland was of unknown type 
+- Added border for landuse = industrial
+- Different water for riverbank to avoid names for the river and the bank
+- Added nice borders around industrial, commerical and retail area
+- Make highway = residential visible on 22 in stead of 24
+- Do not show watername if fountain
+- Moved poi for bunker to put waterfall on garmin default code
+- Hide oneway arrows for roundabouts
+- Render sand as overlay on pitches in stead of beach
+- Stoppedn rendering area = school
+- Stoppend rendering amenity = nursing_home as a poi equivalent t amenity = social_facility
+- Enabled streetname on pedestrian road
+- Show bridges if highway = pedestrian (bug introduced by explictly naming bridges and tunnels)
+- Removed operator and number of stars from hotels and motels (name was too log)
+- Landuse = landfill > landuse = forest
+- Added name rendering for powerplants
+- Do not show historic = citywalls if also tagged as building
+- Introduced streetlike lable for place = square
+- Hide tunnels if not highway, waterway or railway
+- Prefer man_made = tower before tourism = viewpoint
+- Hide tunnels if indoor = yes t avoid cluttering in subway areas
+- Re-introduced small tunnel
+- public_transport = staion >  landuse = commercial
+- public_transport = staion >  parking
+- No elevator poi if retrieved from polygon
+
+20180429
+- Replaced relations file with default
+- Adjusted political boundaries rules, and typefile presentation so they look better when drawn twice
+- Excluded shop = empty or disused
+- Excluded office = empty, vacant, no etc.
+- Added Tertiair tunnel line (0x25) and set tertiair link to smaller (0x6 instead of 0x5)
+- Fixed bug where primary was rendered twice in tunnels
+- Fixed bug where some highways where visible both small on lower zoomlevels as well as wide on higher zoomlevels.
+- Tunnel width of linetype 0x2f form 12 to 10
+- Changed rendering tunnels regardless of layer 
+- Fixed bug where highway = emergency_bay was not rendered but if combined with oneway the oneway arrows are rendered. 
+- Added rendering for construction = yes & construction = road, highway, bridleway and parking_aisle, pier
+- Fixed bug where private roundabouts where not rendered with dashed overlay
+- Only show oneway arrows on specific highways by including them instead of excluding roadtypes
+- Added rendering for railway construction tram and narrow_gauge
+- Allow narrow_gauge to have tunnel = avalance_protector and still be visible as solid line instead of dotted line
+
+20180423
+- Fixed bug where man_made = pier was not always routable and because of that ferries where ignored
+- Fixed bug where routing with car did not work because of the usage of type 0x2d as a bridge. If rendered once before highway = footway car routing was impossible
+- Fixed bug where highway symbols where not visible anymore because of other rule overiding the ref.
+
+20180421 Updated up to changelog of 4.10.0
+- Added rendering for amenity = parking_space same as parking
+- Added Rendering for shop = bed
+- Stopped rendering taxilane, only taxiway
+- Added rendering for areialway = zipline
+- Added rendering voor office
+- Changed rendering of tree rows to allow closed lines
+
+Other changes
+- Added point waterway = dam if not building/line or area
+- Repaired bug lightrail in tunnel should be light_rail with underscore
+- Draworder highway = service > water
+- Added 3 symbols for different types of entrances
+- Added linetype for private / no-access steps
+- Render amenity = market_place as building if building = yes
+- Render natural = reef
+- Fixed wrong symbol for shop = trade
+- Render symbol for line slipway & start = yes
+- Hide canal with tunnel in building
+- Campsite visible on lower zoomlevels by changing poi code
+- Draworder landuse = construction > meadow
+- Draworder public_transport platform > water
+- Draworder dogpark > leisure = recreation_ground
+- Do not render border_control
+- Added rendering for leisure = beach_resort
+- Differentiate symbol rendering of fortresses, palaces and manoir
+- Added rendering for emergency phone
+- Added rendering for man_made = cutline
+- Fixed flooded islands if natural = bay
+- Use arg command pois-to-area-placement to center the poi's in stead of aligning them to the entrances
+- Changed poi code for sea and muslim cemetry back to their garmin default
+- Prefer lable for theme_park before recreation_ground
+- Added rendering name for place = farm and landuse = residential
+- Thicker line for waterway = dam
+- Increased draworder miniature_golf > tourism = caravan_site
+- Added rendering for place = square
+- Added rendering for shop = video_games
+- Added rendering for waterway = water_fall
+- Switched labeling of water areas from area2poi symbols to polygons with lables in  the typefile because determining sizing of areas was to unpredictable
+- Added renderering for place = suburb
+- Added lables to some extra symbols such as towers
+- Fixed combination of tourism and others to prefer the others
+- Fixed combination of beach and leisure to prefer leisure
+- Changed lables for place names to be more smoothly visible at certain zoomlevels
+- Disabled 'landkreis' names for Germany
+
+20180328 Updated up to changelog of 4.9.0
+- Added different types of towers and mast 
+- Add symbols for sauna, bbq, shower
+- Add symbol for shop = medical, dairy and music
+- Add symbol for advertising = column
+- Add rendering for construction = steps
+- Changed draworder for campsite to higher
+- Changed fontcolor and size for small islands
+- Less short railways, railway crossovers and narrow gauge on lower zoomlevels
+- Display countryborders  if combined with rivers and canals
+- Display country borders on low zoomlevels as simple line
+- Use -min-polygon-size option to lower the amount of small areas on different zoomlevels
+- Moved almost all symbols under 0x30 to avoid them pop-up at low zoomlevels by default garmin behavior
+- Hide canals without names and short distance canals on lower zoomlevels
+- Changed natural = marsh automatically to natural = wetland and wetland = marsh
+- Added place = locality same as hamlet
+- Different bitmap for landuse = orchard and plant_nursery
+- Draworder for dog_park > village_green
+- Show Industrial area with tag building = yes as building instead of industrial
+- Swimmingpool with covered=yes should be visible as building instead of water
+- Transparent icon for waterway = weir
+- Added rendering for intermittent water
+- Draworder fire & police station > residential
+ 
+20180311
+- Added political borders for different countries
+- Added region names for them as well (Belgium and German provinces/bundesländer)
+- Big improvement on showing place names on the correct zoomlevel.
+- Moved some poi's to different codes so they don't pop up on lower zoomlevels
+- Added guided buslines
+- Display less highway shields
+- Show hidden rondabouts on level 24 for better routing
+- Only show woods-leaftype form level 22-24 instead of 20
+- Added leaftype = leafless
+- Added reedbed and mangrove
+- Added symbol for wayside_shrine
+- Added symbol for waste_disposal
+- Shuffled some poi codes
+
+20180305 Updated up to changelog of 4.8.0
+- Added shop = chocolate same as shop=confiserie
+- Added historic = fort
+- Added public = bath
+- Added barrier = toll_booth
+- Added barrier = log same as barrier = bollard
+- Added amenity = waste_disposal same as amenity = waste_basket
+- Less prominent colors for military area
+- Added wayside_shrine same as wayside_cross
+- Added highway = construction & construction = pedestrian
+- Added poi for amenity=hospital (may result in duplicate poi if also rendered as polygon)
+- Added barrier = embankment
+
+20180213 Updated up to changelog of 4.7.0
+- Changed background color amenity = arts_centre to light yellow
+- Added tourism = apartment [0x2d07 resolution 24]
+- Added icon for leisure = fitness_centre
+- Change shades of green for landuse/leisure = recreation_ground and garden
+- Changed icon color for picnic_site from brown to green
+- Changed icon color for water_park from brown to green
+- Added icon for leisure = firepit
+- Changed points for campsite, caravan site and chalet to show up earlier
+- Changed tree poi code to different one to not show up on lower zoomlevels
+- Changed drinking water poi code to different one to not show up on lower zoomlevels
+- Included contourlines in line file
+- Changed area_size for displaying military areas only if bigger
+- Draworder Cemetry > Forest
+- Draworder Apron > Forest
+- Border around Camping sites
+- Border around Parkings
+- Amenity = ferry terminal same as aeroway (Not yet sure if this is correct combined with marina)
+- Amenity = ferry_terminal in combination wit landuse=industrial will prefer Amenity
+- Used Continue on city walls line because easily used as polygon as well
+- New polygon landuse = garages 
+- Amenity = marketplace when polygon rendered as commercial area
+- Changed icon amenity = clinic to same as amenity=doctors in stead of amenity = hospital
+- Do not show tunnel line on area'same, they result in rectangular 'tunnels'
+- Changed color of garden to same as park
+- Added renderering motorcycle_parking
+- Smaller lines for Motorways on lower zoomlevels
+
+20171224 Updated up to changelog of 4.6.0
+- Changed color of sports_centre to green
+- Changed color leisure = recreation_ground to green
+- Added amenity = clinic same as amenity = hospital
+
+20171023 Updated up to changelog of 4.5.0
+- Unified rendering of leisure = fitness_station and leisure = fitness_centre
+- Changing windmill color from amenity brown to man_made gray
+- Rendering of military = bunker to 0x6508
+- Display primary en secondary roads on lower zoomlevels
+- Changed man_made items from black to darkgray
+
+20171023 Updated up to changelog of v4.4.0
+- Introduced landuse = religious
+- Added shop = pastry
+- Added amenity = marketplace
+
+20171007
+- Worked on hiding features on lower zoomlevels
+- Introduced new highway lines in TYP-file for these zoomlevels
+- Changed linecodes for runway and taxiway
+- Changed draworder for glaciers on top of zoomlevel natural park
+- Refined glacier sizes only being displayed on certain zoomlevels
+- Draworder 0x03 Residential > 0x16 Nature reserve 
+- Only show single ford if its a line
+- Only show fences on resolution 24 instead of 22
+- Draworder glacier > 0x21 Rock
+- Added power = station to powerplants before industrial
+- Draworder landuse = quarry > landuse = farmland
+
+20171001
+- Added new tram line in combination with highway = service because of draworder conflicts
+- Worked on hiding features on lower zoomlevels implementing beta feature mkgmap:cache_area_size
+- Introduced new (green) background color for lower zoomlevels
+- Hide footways and paths on lower zoomlevels if shorter then 250m
+- Highway = path before leisure = track
+- Natural = mud (wetland feature) should continue because of combinations with landuse = water
+- Changed icon color for playground from brown to green
+- Implemented latest color changes for mapnik style lighthouse, embassy and water color
+- Reduced resolution levels to 24,22,20,18
+- No continue on fuel station
+
+20170829
+- First version

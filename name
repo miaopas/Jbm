@@ -1,0 +1,65 @@
+#20200520 Not yet used
+# Rules for naming objects, based on the following tags:
+# name, brand, operator, ref
+
+# better use option --ignore-fixme-values
+#Use new set of variables to keep the original unaltered for in case they are needed later on or needed for unittesting
+ref 				= * 		{add jbmref '$(ref)'} 
+operator 	= *		{add jbmoperator '$(operator)'} 
+brand 			= *		{add jbmbrand '$(brand)'} 
+name 			= *		{add jbmname '$(name)'} 
+
+#Delete FIXME values
+ref 				~ '(?i)fix[ _]?+me'	{delete jbmref} 
+operator 	~ '(?i)fix[ _]?+me'	{delete jbmoperator} 
+brand 			~ '(?i)fix[ _]?+me'	{delete jbmbrand}
+name 			~ '(?i)fix[ _]?+me'	{delete jbmname}
+
+#Delete duplicate names
+jbmoperator	= ${jbmbrand} 	{delete jbmoperator}
+jbmoperator	= ${jbmname}	{delete jbmoperator}
+jbmname		= ${jbmbrand}	{delete jbmbrand}
+
+#Names can be calculate for different purposes. Every purpose gets its owen variable so this naming file can be used in both lines/points and polygons where you choose the preprocessed value.
+#	Streets			
+#	Sports
+#	Public transport
+#  Highway exit
+#	Fuel station			We are interested in the name/brand or operator
+
+
+
+# None of operator, brand given
+ref=* & (operator!=* & brand!=*) & (highway=bus_stop | railway=tram_stop | railway=halt | railway=station) { name '${name} ${ref}' | '${ref}' }
+ref=* & (operator!=* & brand!=*) { name '${ref} ${name}' | '${ref}' }
+
+# Both operator and brand given
+operator=* & brand=* {
+ name '${brand}: ${ref} ${name} (${operator})' |
+      '${brand} ${ref} (${operator})' |
+      '${brand}: ${name} (${operator})' |
+      '${brand} (${operator})'
+}
+
+# One of operator or brand given
+operator=* & brand!=* & (highway=bus_stop | railway=tram_stop | railway=halt | railway=station) {
+ name '${name} ${ref} ${operator}' |
+      '${name} ${operator}' |
+      '${ref} ${operator}' |
+      '${operator}'
+}
+
+operator=* & brand!=* {
+ name '${operator}: ${ref} ${name}' |
+      '${operator}: ${name}' |
+      '${operator}: ${ref}' |
+      '${operator}' |
+      '${ref}'
+}
+brand=* & operator!=* {
+ name '${brand}: ${ref} ${name}' |
+      '${brand}: ${name}' | 
+      '${brand}: ${ref}' |
+      '${brand}' |
+      '${ref}'
+}

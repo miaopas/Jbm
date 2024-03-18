@@ -1,0 +1,625 @@
+#Called from within access, contains unittest debugging
+#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#=======================================================================================
+
+#From within access and access-translations we set access to certain highways, but all these algortims could also have false results
+#These unittest look from the tags up back to the results calculated and picks out typical configurations to check. Because the original osm values are not altered anymore its safe to test against
+#ever real life osm situation and come up with a conclusion towards mkgmap:access values
+
+#	(sac_scale = * | mtb:scale ~ '([0-6]|[0-6][\+|\-])') &
+#	!(mtb:scale ~ '(0|0\+|0\-)') |
+
+#Common strings for copy/paste
+#		access ~ '(no|private|permit|military)'
+#      bicycle ~ '(yes|designated|official|permissive|destination|dismount)'
+
+#=======================================================================================
+#Category A : Error / warnings
+#=======================================================================================
+#--- Test A01
+(highway =* | barrier =* | man_made = pier | route = ferry) &
+		!(mkgmap:foot ~ '(yes|no)' & mkgmap:bicycle ~ '(yes|no)'  & mkgmap:car ~ '(yes|no)'  & mkgmap:taxi ~ '(yes|no)'  &
+		mkgmap:truck ~ '(yes|no)'  & mkgmap:bus ~ '(yes|no)'  & mkgmap:emergency ~ '(yes|no)'  & mkgmap:delivery ~ '(yes|no)') 
+																																	{add dbgmsgerror = 'Error (A01) - Mkgmap access values must be yes or no' }
+#--- Test A02
+highway ~ '(motorway|trunk|primary|secondary|tertiary).*' & jbmunaccessible = true &
+		!(
+		access = no
+		)
+																																	{add dbgmsgverbose = 'Warning (A102) - Highway is unaccessible'  ; add dbgcategory = 'verbose info'}
+#--- Test A03
+motorroad = yes & highway ~ '(track|path|footway|pedestrian|bridleway|living_street|residential)'
+																																	{add dbgmsgerror = 'Error (A03) - Motorroad set to pedestrian highway'}
+
+#=======================================================================================
+#Category B : Informal, nice to know
+#=======================================================================================
+#--- Test B01
+foot	= no &  jbmfoot = yes & jbm_route_hiking = * 												{add dbgmsgverbose = 'Verbose (B01) - Foot added because of walking route' ; add dbgcategory = 'debug - improve osm tagging'}
+
+#--- Test B02
+foot	= no &  jbmfoot = yes & access !=* &
+	(
+	sidewalk ~ '(left|right|both|yes)'
+	) &
+	!(
+	jbm_route_hiking = *
+	)	 										
+																																	{add dbgmsgverbose = 'Verbose (B02) - Foot added because of sidewalk' ; add dbgcategory = 'verbose info'}
+
+#--- Test B1.03
+bicycle	 = no  &  jbmbicycle = yes & jbm_route_bicycle = * 										
+																																	{add dbgmsgverbose = 'Verbose (B03) - Bicycle added because of bicycle route' ; add dbgcategory = 'debug - improve osm tagging'}
+
+#=======================================================================================
+#Category C : Bicycle should be allowed because of implicit or explicit tagging
+#=======================================================================================
+#--- Test C01
+mkgmap:bicycle = no &
+	(
+	bicycle = yes | access:bicycle = yes | bike = yes | speed_pedelec = yes |
+	cycleway:bicycle = yes | cycleway:left:bicycle = yes | cycleway:right:bicycle  = yes | cycleway:both:bicycle = yes |
+	sidewalk:bicycle = yes | sidewalk:left:bicycle = yes | sidewalk:right:bicycle = yes | sidewalk:both:bicycle = yes |
+	footway:bicycle = yes | footway:left:bicycle = yes | footway:right:bicycle = yes | footway:both:bicycle = yes |
+	footway:left:bicycle:oneway = no | footway:right:bicycle:oneway = no |
+	shoulder:access:bicycle 	~ '(yes|designated|official|permissive|destination|dismount)' |
+	shoulder:bicycle				~ '(yes|designated|official|permissive|destination|dismount)'
+	) &
+	!(
+		bicycle ~ '(sep[e|a]rat[e|ed]|use_sidepath)' |
+		class:bicycle = -3 |
+		class:bicycle:roadcycling = -3 |
+		class:bicycle:commute = -3 | 
+		bicycle_road = no |
+		mtb:scale ~ '([1-6]|[1-6][\+|\-])' |
+		bicycle:type = mtb |
+		bicycle:designated:type = mtb
+	)
+																																{add dbgmsgerror = 'Warning (C01) - No bicycle access with explicit bicycle tagging'}
+																																
+#--- Test C02
+highway ~ '(footway|path|track|pedestrian)'  & mkgmap:bicycle = no &
+	(
+	cycleway:surface = * | cycleway:est_width = * |  cycleway:width = * | cycleway:smoothness = * |
+	class:bicycle = * | class:bicycle:commute = * | class:bicycle:touring = * | class:bicycle:roadcycling = * | class:bicycle:trailer = * | class:bicycle:non_experienced = * | bicycle:class = * |
+	bicycle:designated:type = * | bicycle:type = * | 
+	bicycle:lanes = * | bicycle:lanes:forward = * | bicycle:lanes:backward = * | lanes:bicycle = * | bicycle_road = * | cycle_street = * |
+	bicycle:backward = * | bicycle:forward = *  | 
+	maxspeed:bicycle = * | monitoring:bicycle = * | bicycle:surface = * |
+	routing:bicycle = * | restriction:bicycle = *  | 
+	bicycle:proposed = * | proposed:bicycle = *  |	
+	sidewalk:left:bicycle:oneway = * | sidewalk:right:bicycle:oneway = * | footway:left:bicycle:oneway = *  | footway:right:bicycle:oneway = * | 
+	proposed:oneway:bicycle = * | cycling_width = * | cycling = * | surface_bike = * | bike_ride = * | cargobike = *
+	) &
+	!(
+		bicycle						~ '(no|private|permit|military)' |
+		access 						~ '(no|private|permit|military)' |
+		bicycle:backward 	~ '(no|private|permit|military)' |
+		bicycle:forward 		~ '(no|private|permit|military)' |
+		class:bicycle ~ '(\-3|\-2|\-1)' |
+		class:bicycle:mtb ~ '([1-6]|\-[1-6])' |
+		class:bicycle:roadcycling = -3 |
+		class:bicycle:commute = -3 | 
+		bicycle_road = no |
+		mtb:scale ~ '([1-6]|[1-6][\+|\-])' |
+		bicycle:type = mtb |
+		bicycle:designated:type = mtb |
+		sac_scale = *
+	)
+
+																																	{add dbgmsgerror = 'Warning (C02) - No bicycle access on $(highway) with explicit bicycle tagging'}
+
+																																																					
+#--- Test C03
+	shoulder:access:bicycle ~ '(yes|designated|official|permissive|destination|dismount)' & 	mkgmap:bicycle = no
+																																	{add dbgmsgerror = 'Warning (C03) - No bicycle access on shoulder'}
+
+#--- Test C04
+	bicycle != * & access !=* & highway ~ '(trunk).*' &	mkgmap:bicycle = no &
+	!(
+		mkgmap:admin_level2 	~ '(AUT|BEL|DNK|FRA|HUN|NLD|POL|SVK|CHE)' |
+		motorroad = yes |
+		bicycle:backward 	~ '(no|use_sidepath)' |
+		bicycle:forward 		~ '(no|use_sidepath)'	
+	)
+																																	{add dbgmsgerror = 'Error (C04) - Bicycle should be allowed on $(highway) because country default'}
+ 
+#--- Test C05
+bicycle !=* & access !=* & (highway = track & tracktype = grade1) & mkgmap:bicycle = no &
+	!(
+		motorroad = yes |
+		bicycle:backward 	~ '(no|use_sidepath)' |
+		bicycle:forward 		~ '(no|use_sidepath)'	
+	)
+																																	{add dbgmsgerror = 'Error (C05) - Bicycle should be allowed on track of type grade1'}
+																					
+#--- Test C06
+bicycle != * & access != * & highway = track & mkgmap:unpaved = 0 & mkgmap:bicycle = no &
+	!(
+		sac_scale = * | mtb:scale = * | mtb:scale:uphill = * |
+		motorroad = yes |
+		bicycle:backward 	~ '(no|use_sidepath)' |
+		bicycle:forward 		~ '(no|use_sidepath)'	
+	)
+																																	{add dbgmsgerror = 'Error (C06) - Bicycle should be allowed on track with paved surface'}
+
+#=======================================================================================
+#Category D: Nothing specified at all, considered to be unknown, should fall back on defaults of the highway type
+#=======================================================================================
+#In some countries pedestrians are not allowed on cylceways
+foot != * & access !=* & highway = cycleway &
+	mkgmap:foot = no &
+	mkgmap:admin_level2 ~ '(BEL|NLD|HUN|ISL|OMN|PHL|POL|RUS|SVK|CHE|TUR|GBR|USA)' &
+	!(
+		sidewalk ~ '(sep[a|e]rate)'  |
+		sidewalk:left ~ '(sep[a|e]rate)'  |
+		sidewalk:right ~ '(sep[a|e]rate)'  |
+		sidewalk:both ~ '(sep[a|e]rate)'
+	)
+	
+																																	{add dbgmsgerror = 'Error (D01) - Foot should be allowed on cycleway'}
+																																	
+foot != * & access !=* & highway = cycleway &
+	mkgmap:foot = yes &
+	!(
+	mkgmap:admin_level2 ~ '(BEL|NLD|HUN|ISL|OMN|PHL|POL|RUS|SVK|CHE|TUR|GBR|USA)' |
+	segregated = * |
+	jbm_route_hiking = * |
+	sac_scale = * |
+	hiking 						~ '(yes|designated|official|permissive)' |
+	sidewalk 					~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	sidewalk:left 			~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	sidewalk:right 			~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	footway 					~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	footway:left 			~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	footway:right 			~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	cycleway:left:foot	~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	cycleway:right:foot	~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' |
+	cycleway:foot			~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)'
+	)
+																																	{add dbgmsgerror = 'Error (D02) - Foot should not be allowed on cycleway'}
+
+highway = cylceway & footway = * &
+!(
+	footway ~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)'
+)
+																																	{add dbgmsgerror = 'Error (D03) - Unknown footway avoiding foot access on cycleway'}
+
+highway = cylceway & sidewalk = * &
+!(
+	sidewalk ~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)'
+)
+																																	{add dbgmsgerror = 'Error (D04) - Unknown sidewalk avoiding foot access on cycleway'}
+
+
+#In all countries foot is allowed on all normal highways, unless the highways is explictly set
+foot != * & access !=* & highway ~ '(primary|secondary|tertiary|unclassified|residential|living_street|service|track|path|footway|road).*'  &
+	mkgmap:foot = no &
+		!(
+		sidewalk 				~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		sidewalk:left 		~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		sidewalk:right	 	~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		sidewalk:both 		~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		motorroad = yes |
+		access:foot = *
+	)																																{add dbgmsgerror = 'Error (D05) - Foot should be allowed'}
+
+foot != * & access != * & highway ~ '(trunk).*' 
+	& mkgmap:foot = no &
+	!(
+		mkgmap:admin_level2 ~ '(BEL|NLD|AUT|DNK|FRA|HUN|POL|SVK|CHE)' |
+		sidewalk 				~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		sidewalk:left 		~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		sidewalk:right	 	~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		sidewalk:both	 	~ '(sep[e|a]rat[e|ed]|separate_double)' |
+		motorroad = yes |
+		access:foot = no
+	)																																{add dbgmsgerror = 'Error (D06) - Foot should  be allowed on trunk'}
+
+
+foot != * & access !=* & highway ~ '(trunk|motorway).*' 
+	& mkgmap:foot = yes &
+	mkgmap:admin_level2 ~ '(BEL|NLD|AUT|DNK|FRA|HUN|POL|SVK|CHE)' &
+	!(
+		sidewalk			~ '(yes|left|right|both|sep[e|a]rat[e|ed])' | 
+		jbm_route_hiking = *
+	)																																{add dbgmsgerror = 'Error (D07) - Foot should not be allowed on trunk or motorway'}
+
+bicycle != * & access !=* & highway ~ '(primary|secondary|tertiary|unclassified|residential|living_street|service|cycleway|road).*' 
+	& mkgmap:bicycle = no &
+	!(
+		barrier = * |
+		speed_pedelec = no |
+		bike = no |
+		motorroad = yes |
+		bicycle:backward ~ '(no|use_sidepath)' |
+		cycleway:left:bicycle ~ '(no|use_sidepath)' |
+		cycleway:right:bicycle ~ '(no|use_sidepath)' |
+		bicycle:forward ~ '(no|use_sidepath)'
+	)																																{add dbgmsgerror = 'Error (D08) - Bicycle should be allowed on normal roads'}
+
+bicycle !=* & access:bicycle !=* & access !=* & highway ~ '(track|bridleway)' 
+	& mkgmap:bicycle = yes &
+	!(
+		mkgmap:admin_level2 ~ '(BRA|ISL|OMN|ROU|GBR|USA)' |
+		mtb:scale ~ '(0|0\+|0\-)' |
+		jbm_route_bicycle ~ '(.cn)' |
+		jbm_route_network_ucn = true | jbm_route_mtb = true |
+		bike = yes | speed_pedelec = yes |
+		class:bicycle = * | class:bicycle:commute = * | class:bicycle:touring = * | class:bicycle:roadcycling = * | class:bicycle:trailer = * | class:bicycle:non_experienced = * | bicycle:class = * |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		sidewalk:bicycle 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		bicycle_road 			~ '(yes|designated|official|permissive|destination)' | cycle_street = yes |
+		tracktype = grade1 | 	mkgmap:unpaved = 0 |
+		toll = yes | toll:bicycle = yes |
+		icn ~ '(yes|proposed)' | ncn ~ '(yes|proposed)' | rcn ~ '(yes|proposed)' | lcn ~ '(yes|proposed)' | ucn ~ '(yes|proposed)' |
+		vehicle 					~ '(yes|designated|official|permissive|destination)' |
+		motor_vehicle 			~ '(yes|designated|official|permissive|destination)' |
+		motorcar 					~ '(yes|designated|official|permissive|destination)' |
+		proposed:bicycle		~ '(yes|designated|official|permissive|destination|dismount)' |
+		bicycle:backward 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		bicycle:forward 		~ '(yes|designated|official|permissive|destination|dismount)' |
+		maxspeed:bicycle 	 = *
+	)
+																																	{add dbgmsgerror = 'Error (D09) - Bicycle should not be allowed on $(highway) when unknown'}
+bicycle !=* & access:bicycle !=* & access !=* & highway ~ '(footway)' 
+	& mkgmap:bicycle = yes &
+	!(
+		mkgmap:admin_level2 ~ '(AUT|BLR|BRA|DEU|ISL|NOR|ROU|RUS|UKR)' |    
+		mtb:scale ~ '(0|0\+|0\-)' |
+		jbm_route_bicycle ~ '(.cn)' |
+		jbm_route_network_ucn = true | jbm_route_mtb = true |
+		bike = yes | speed_pedelec = yes |
+		class:bicycle = * | class:bicycle:commute = * | class:bicycle:touring = * | class:bicycle:roadcycling = * | class:bicycle:trailer = * | class:bicycle:non_experienced = * | bicycle:class = * |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		sidewalk:bicycle 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		bicycle_road 			~ '(yes|designated|official|permissive|destination)' | cycle_street = yes |
+		tracktype = grade1 | 	mkgmap:unpaved = 0 |
+		toll = yes | toll:bicycle = yes |
+		icn ~ '(yes|proposed)' | ncn ~ '(yes|proposed)' | rcn ~ '(yes|proposed)' | lcn ~ '(yes|proposed)' | ucn ~ '(yes|proposed)' |
+		vehicle 					~ '(yes|designated|official|permissive|destination)' |
+		motor_vehicle 			~ '(yes|designated|official|permissive|destination)' |
+		motorcar 					~ '(yes|designated|official|permissive|destination)' |
+		proposed:bicycle		~ '(yes|designated|official|permissive|destination|dismount)' |
+		bicycle:backward 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		bicycle:forward 		~ '(yes|designated|official|permissive|destination|dismount)' |
+		maxspeed:bicycle 	 = * | cycleway:est_width = * | cycleway=sidewalk |  cycleway:surface = *
+	)
+																																	{add dbgmsgerror = 'Error (D10) - Bicycle should not be allowed on $(highway) when unknown'}
+																																	
+bicycle != * & access:bicycle != * & access != * & highway ~ '(track|path|footway|bridleway)' 
+	& mkgmap:bicycle = yes & 
+	(sac_scale = * | mtb:scale = *) &
+	!( 
+		bicycle:backward 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		bicycle:forward 		~ '(yes|designated|official|permissive|destination|dismount)' |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		class:bicycle ~ '(\-2|\-1|0|1|2|3)' |
+		jbm_route_bicycle ~ '(.cn)' |
+		tracktype = grade1 |
+		mkgmap:unpaved = 0 |
+		mtb:scale ~ '(0|0\+|0\-)' |
+		bike = yes |
+		toll:bicycle = yes |
+		bicycle_road = yes | cycle_street = yes | cycleway = yes |
+		icn ~ '(yes|proposed)' | ncn ~ '(yes|proposed)' | rcn ~ '(yes|proposed)' | lcn ~ '(yes|proposed)' | ucn ~ '(yes|proposed)' |
+		vehicle 				~ '(yes|designated|official|permissive|destination)' |
+		motor_vehicle 		~ '(yes|designated|official|permissive|destination)' |
+		motorcar 				~ '(yes|designated|official|permissive|destination)'
+	)																																{add dbgmsgerror = 'Error (D11) - Bicycle should not be allowed on $(highway) when mtb'}
+
+mtb:scale:uphill='([1-5])' & bicycle != * &
+	!( 
+		cycleway = track |
+		jbm_route_bicycle = * |
+		tracktype = grade1 |
+		bike = yes
+	)																																{add dbgmsgerror = 'Error (D12) - Bicycle should not be allowed when mtb'}
+
+bicycle != * & access !=* & highway ~ '(trunk|motorway).*' &
+	mkgmap:admin_level2 ~ '(AUT|BEL|DNK|FRA|HUN|NLD|POL|SVK|CHE)' &
+	mkgmap:bicycle = yes &
+	!(
+		jbm_route_bicycle ~ '(.cn)' |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		bike=yes |
+		sidewalk:right:bicycle=yes
+	)																																{add dbgmsgerror = 'Error (D13) - Bicycle should not be allowed on $(highway)'}
+	
+
+
+taxi !=* & access !=* & mkgmap:car = yes & highway ~ '(motorway|trunk|primary|tertiary|secondary|unclassified|residential|service|bus_guideway|busway).*' 
+																& mkgmap:taxi=no
+																																	{add dbgmsgerror = 'Error (D14) - Taxi should be allowed'}
+																																	
+psv !=* & bus !=* & coach != * & access !=* & mkgmap:car = yes & highway ~ '(motorway|trunk|primary|tertiary|secondary|unclassified|residential|service|bus_guideway|busway).*' 
+																& mkgmap:bus = no &
+	!(
+		man_made = pier |
+		motor_vehicle 		~ '(no|private)' |
+		motor_vehicle 		~ '.*(agricultural|forestry|delivery)' |
+		vehicle 				~ '(no|private|car|caravan)' |
+		vehicle 				~ '.*(agricultural|forestry|delivery)' |
+		access:bus 			~ '(no)'
+	)
+																																	{add dbgmsgerror = 'Error (D15) - Bus should be allowed'}
+
+bicycle != * & access != * & highway ~ '(steps|bus_guideway|busway)' &
+	!(
+		class:bicycle = * | class:bicycle:commute = * | class:bicycle:touring = * | class:bicycle:roadcycling = * | class:bicycle:trailer = * | class:bicycle:non_experienced = * | bicycle:class = * |
+		access:bicycle 			~ '(yes|designated|official|permissive|destination|customers|dismount|discouraged)' |
+		bicycle:backward = dismount |
+		jbm_route_bicycle 	= * |
+		lcn = proposed | rcn = proposed | ncn = proposed |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		ramp 						~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle|up)' |
+		ramp:bicycle 			~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle|up)' |
+		ramp:bicycle:left		~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle|up)' |
+		ramp:bicycle:right	~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle|up)' |
+		ramp:stroller 			~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle|up)' |
+		ramp:wheelchair 		~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle|up)'
+	)	
+																& mkgmap:bicycle = yes							{add dbgmsgerror = 'Error (D16) - Bicycle should not be allowed on steps or bus guideway'}
+
+bicycle != * & access != * & highway = steps &
+		(ramp:bicycle = yes | ramp:stroller = yes | ramp = yes | ramp:wheelchair = yes)
+																& mkgmap:bicycle = no								{add dbgmsgerror = 'Error (D17) - Bicycle should be allowed on steps with a ramp'}
+
+motor_vehicle != * & vehicle != * & motorcar != * & access != *  & highway ~ '(steps)' 
+																& (mkgmap:car = yes | mkgmap:truck = yes | mkgmap:taxi = yes)
+																																	{add dbgmsgerror = 'Error (D18) - Vehicles should not be allowed on steps'}
+taxi != * & psv !=* & access !=* & highway ~ '(bus_guideway|busway)'			
+																& (mkgmap:bus = no & mkgmap:taxi=no)
+																																	{add dbgmsgerror = 'Error (D19) - Bus or taxi should be allowed on bus guideway'}
+
+#Category E : General access specified as no-access then the specific values should fall back on general
+#=======================================================================================
+foot != * & access ~ '(no|private|military)' & mkgmap:foot = yes &
+!(
+	access:foot ~ '(yes|designated|official|permissive|destination|customers)' |
+	(bicycle ~ '(yes|designated|official|permissive|destination|customers)' & highway ~ '(path|footway|pedestrian|bridleway|track|residential|living_street|service|unclassified)') |
+	jbm_route_hiking = * |
+	jbm_route_bicycle = * |
+	toll = yes |
+	barrier = toll_booth |
+	sac_scale = * |
+	hiking = * |
+	bicycle:backward = yes |
+	(sidewalk ~ '(left|right|both)' & (psv ~ '(yes|designated)' | bus = yes | taxi = yes | vehicle = yes | motor_vehicle = yes))
+	)
+																																											{add dbgmsgerror = 'Error (E01) - Foot allowed but general access says no'}
+
+bicycle != * & access ~ '(no|private|military)' & mkgmap:bicycle = yes &
+	!(
+		access:bicycle 			~ '(yes|designated|official|permissive|destination|customers|dismount|discouraged)' |
+		sidewalk:right:bicycle 	~ '(yes|designated|official|permissive|destination|dismount|discouraged)' |
+		sidewalk:left:bicycle 	~ '(yes|designated|official|permissive|destination|dismount|discouraged)' |		
+		sidewalk:both:bicycle 	~ '(yes|designated|official|permissive|destination|dismount|discouraged)' |
+		jbm_route_bicycle	= * |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		bicycle:forward 		~ '(yes|designated|official|permissive|destination|dismount|discouraged)' |
+		bicycle:backward 	~ '(yes|designated|official|permissive|destination|dismount|discouraged)' |
+		proposed:bicycle 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		toll = yes
+	)																																										{add dbgmsgerror = 'Error (E02) - Bicycle allowed but general access says no'}
+
+mkgmap:toll = yes & mkgmap:car = no & mkgmap:bus = no & mkgmap:truck = no & highway ~ '(motorway|trunk|primary|secondary|tertiary|unclassified|residential).*' & 
+!(
+	access ~'(no|private)' |
+	motor_vehicle ~'(no|private)' |
+	vehicle ~'(no|private)' |
+	hgv = no | psv = no
+)
+																																											{add dbgmsgerror = 'Warning (E03) - No car or bus or hgv allowed on toll-road'}
+
+mkgmap:toll = yes & mkgmap:car = no & mkgmap:bus = no & mkgmap:truck = no & highway ~ '(motorway|trunk|primary|secondary|tertiary|unclassified|residential).*' & 
+access = private
+																																											{add dbgmsgerror = 'Warning (E04) - No car or bus or hgv allowed on toll-road with private access'}
+
+#Category F: Specified as no-access but ended up with access, considered to be an error
+#=======================================================================================
+foot	~ '(no|private)' & mkgmap:foot = yes &
+	!(
+		jbm_route_hiking 		= * |
+		cycleway:foot 				~ '(yes|designated|official|permissive|destination)' |
+		cycleway:both:foot 		~ '(yes|designated|official|permissive|destination)' |
+		cycleway:right:foot 		~ '(yes|designated|official|permissive|destination)' |
+		cycleway:left:foot 		~ '(yes|designated|official|permissive|destination)' |
+		sidewalk:foot 				~ '(yes|designated|official|permissive|destination)' |
+		sidewalk:both:foot 		~ '(yes|designated|official|permissive|destination)' |
+		sidewalk:right:foot 		~ '(yes|designated|official|permissive|destination)' |
+		sidewalk:left:foot 		~ '(yes|designated|official|permissive|destination)'
+	)
+																																											{add dbgmsgerror = 'Error (F01) - Foot allowed and should not'}
+bicycle	 ~ '(no|private)' & mkgmap:bicycle = yes & 
+	!(
+		jbm_route_bicycle 		= * |
+		sidewalk:bicycle 			~ '(yes|designated|official|permissive|destination|dismount)' |
+		sidewalk:left:bicycle 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		sidewalk:right:bicycle 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		sidewalk:both:bicycle 	~ '(yes|designated|official|permissive|destination|dismount)' |
+		cycleway:bicycle		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway 					~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:left 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:right 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		cycleway:both 		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|side|access_aisle|opposite|shoulder|street|link)' |
+		bicycle:forward = yes | bicycle:backward = yes
+	)																																 														{add dbgmsgerror = 'Error (F02) - Bicycle allowed and should not'}
+motorcar 				~ '(no|private)' 					& vehicle != * & motor_vehicle != * & car != *  & mkgmap:car = yes 	{add dbgmsgerror = 'Error (F03) - Car allowed and should not'}
+motor_vehicle		~ '(no|private)' 					& vehicle != * & motorcar != * & car != *  & mkgmap:car = yes 			{add dbgmsgerror = 'Error (F04) - Car allowed and should not'}
+vehicle 				~ '(no|private)'						& motor_vehicle !=* & motorcar != * & car != * & mkgmap:car = yes 	{add dbgmsgerror = 'Error (F05) - Car allowed and should not'}
+taxi 						~ '(no|private)'						& mkgmap:taxi = yes 																					{add dbgmsgerror = 'Error (F06) - Taxi allowed and should not'}
+psv 						~ '(no|private)' 					& mkgmap:bus = yes 																				{add dbgmsgerror = 'Error (F07) - Bus allowed and should not'}
+hgv 						~ '(no|private)'						& mkgmap:truck = yes 																				{add dbgmsgerror = 'Error (F08) - Truck allowed and should not'}
+emergency 			~ '(no|private)'						& mkgmap:emergency = yes 																		{add dbgmsgerror = 'Error (F09) - Emergency allowed and should not'}
+delivery 				~ '(no|private)' 					& mkgmap:delivery = yes 																			{add dbgmsgerror = 'Error (F10) - Delivery allowed and should not'}
+
+#Category G : Specified as yes but ended up with no access
+#=======================================================================================
+foot						~ '(yes|designated|official|permissive|destination)' & mkgmap:foot = no 																	{add dbgmsgerror = 'Error (G01) - Foot not allowed and should be'}
+bicycle					~ '(yes|designated|official|permissive|destination)' & mkgmap:bicycle = no & !(mtb:scale > 2 | class:bicycle = -3 | bicycle:designated:type=mtb)	{add dbgmsgerror = 'Error (G02) - Bicycle not allowed and should be'}
+motorcar 				~ '(yes|designated|official|permissive|destination)' & vehicle !=* & motor_vehicle != * & mkgmap:car = no 			{add dbgmsgerror = 'Error (G03) - Car not allowed and should be'}
+motor_vehicle 		~ '(yes|designated|official|permissive|destination)' & vehicle !=* & motorcar !=* & car != * & mkgmap:car = no 	{add dbgmsgerror = 'Error (G04) - Car not allowed and should be'}
+vehicle 				~ '(yes|designated|official|permissive|destination)' & motor_vehicle != * & motorcar != * & mkgmap:car = no 		{add dbgmsgerror = 'Error (G05) - Car not allowed and should be'}
+taxi 						~ '(yes|designated|official|permissive|destination)' & mkgmap:taxi = no 																		{add dbgmsgerror = 'Error (G06) - Taxi not allowed and should be'}
+psv 						~ '(yes|designated|official|permissive|destination)' & mkgmap:bus = no 																		{add dbgmsgerror = 'Error (G07) - Bus  not allowed and should be'}
+hgv 						~ '(yes|designated|official|permissive|destination)' & mkgmap:truck = no 																	{add dbgmsgerror = 'Error (G08) - Truck not allowed and should be'}
+emergency 			~ '(yes|designated|official|permissive|destination)' & mkgmap:emergency = no 															{add dbgmsgerror = 'Error (G09) - Emergency not allowed and should be'}
+delivery				~ '(yes|designated|official|permissive|destination)' & mkgmap:delivery = no 																{add dbgmsgerror = 'Error (G10) - Delivery not allowed and should be'}
+
+
+
+#Category H : Reason for editing osm data
+#=======================================================================================
+mkgmap:foot = no 		& jbm_route_hiking = true								{add dbgmsgerror = 'Error (H01) - No foot allowed on hiking route'; add dbgcategory = 'debug - improve osm tagging'}
+mkgmap:bicycle = no 	& jbm_route_bicycle = true						{add dbgmsgerror = 'Error (H02) - No bicycle allowed on bicycle route'; add dbgcategory = 'debug - improve osm tagging'}
+mkgmap:bicycle = no 	& (bicycle_road = yes | cycle_street = yes) &
+	!(
+	bicycle = use_sidepath |
+	mtb:scale ~ '([1-6]|[1-6][\+|\-])' |
+	class:bicycle = -3 |
+	access:temporary = yes
+	)
+																											{add dbgmsgerror = 'Error (H03) - No bicycle allowed on bicycle road'; add dbgcategory = 'debug - improve osm tagging'}
+
+
+(lcn = yes | icn = yes | rcn = yes | ncn = yes) & mkgmap:bicycle = no &
+		!(
+		construction:bicycle = * |
+		construction = * |		
+		bicycle = use_sidepath |
+		bicycle:backward = use_sidepath |
+		bicycle:forward = use_sidepath |
+		access:temporary = yes		
+		)																									{add dbgmsgwarning = 'Warning (H04) - Bicycle not allowed on cycle network' ; add dbgcategory = 'debug - improve osm tagging'}
+
+(lwn = yes | iwn = yes | rwn = yes | nwn = yes) & mkgmap:foot = no	
+																											{add dbgmsgwarning = 'Warning (H05) - Foot  not allowed on walking network' ; add dbgcategory = 'debug - improve osm tagging'}
+
+cycleway=asl & mkgmap:bicycle = no												
+																											{add dbgmsgwarning = 'Warning (H06) - Bicycle not allowed on highway with Advanced Stop Line (asl)' ; add dbgcategory = 'debug - improve osm tagging'}
+
+motorroad = yes & mkgmap:foot = yes &
+!(
+	jbm_route_hiking ~ '(.wn)' |
+	foot ~ '(yes|designated|official|permissive|destination)'|
+	sidewalk ~ '(left|right|both)'
+)
+																											{add dbgmsginfo = 'Warning (H08) - Foot allowed on highway tagged as motorroad' ; add dbgcategory = 'debug - improve osm tagging'}
+motorroad = yes & mkgmap:bicycle = yes &
+		!(
+		jbm_route_bicycle ~ '(.cn)' |
+		bicycle ~ '(yes|permissive|designated|official|destination|dismount)' |
+		cycleway ~ '(yes|lane|track)' |
+		cycleway:both ~ '(yes|lane|track)' |
+		cycleway:left ~ '(yes|lane|track)' |
+		cycleway:right ~ '(yes|lane|track)'
+		)
+																											{add dbgmsginfo = 'Warning (H09) - Bicycle allowed on highway tagged as motorroad' ; add dbgcategory = 'debug - improve osm tagging'}
+
+(highway = * | barrier = * ) & fee ~ '([y|Y]es|[t|T]rue|some|1)' & mkgmap:toll = no
+																											{add dbgmsgwarning = 'Warning (H10) - No toll on highway with a fee' ; add dbgcategory = 'debug - improve osm tagging'}
+
+highway = * {
+	set jbmtemp =
+	'$(cycleway)' | '$(cycleway:lane)' | '$(cycleway:both:lane)' | '$(cycleway:left:lane)' | '$(cycleway:right:lane)' | '$(cycleway:lanes)' |
+	'$(cycleway:both:bicycle)' | '$(cycleway:left:bicycle)' | '$(cycleway:right:bicycle)' | '$(cycleway:bicycle)' |
+	'$(sidewalk:bicycle)' | '$(sidewalk:both:bicycle)' | '$(sidewalk:left:bicycle)' | '$(sidewalk:right:bicycle)' |
+	'$(footway:both:bicycle)' | '$(footway:left:bicycle)' | '$(footway:right:bicycle)' |
+	'$(bicycle:left)' | '$(bicycle:right)' |
+	'$(shoulder:bicycle)' | '$(shoulder:access:bicycle)' | '$(bicycle:forward)' | '$(bicycle:backward)' | 'unknown'
+	}
+	jbmtemp ~ '(yes|designated|official|permissive|destination|exclusive|shoulder|advisory|left|right|both|lane|track|crossing:shared|share_busway)' & mkgmap:bicycle = no &
+	!(
+		bicycle 				 	~ '(sep[e|a]rat[e|ed]|use_sidepath|no)' |
+		bicycle:forward 		~ '(sep[e|a]rat[e|ed]|use_sidepath|no)' |
+		bicycle:backward 	~ '(sep[e|a]rat[e|ed]|use_sidepath|no)' |
+		
+		class:bicycle = -3 |
+		class:bicycle:roadcycling = -3 |
+		class:bicycle:commute = -3 | 
+		bicycle_road = no |
+		mtb:scale ~ '([1-6])' |
+		bicycle:type = mtb |
+		bicycle:designated:type = mtb |
+		
+		bicycle 				~ '(no|private|permit|military)' |
+		access:bicycle  	~ '(no|private|permit|military)' |
+		access 					~ '(no|private|permit|military)'
+	)
+																											{add dbgmsgwarning = 'Warning (H11) - No bicycle allowed on highway with side options' ; add dbgcategory = 'debug - improve osm tagging'}
+
+highway = * {
+	set jbmtemp =
+	'$(footway:width)' |
+	'$(sidewalk:left)' | '$(sidewalk:right)' | '$(sidewalk:both)' | '$(sidewalk)' |
+	'$(footway:left)' | '$(footway:right)' | '$(footway:both)' | '$(footway)' |
+	'$(cycleway:left:foot)' | '$(cycleway:right:foot)' | '$(cycleway:both:foot)' |
+	'$(foot::left)' | '$(foot::right)' |
+	'$(footway:left:surface)' | '$(footway:right:surface)' | '$(footway:both:surface)'| '$(footway:surface)' | 'unknown'
+	}
+	jbmtemp ~ '(yes|designated|official|permissive|destination|exclusive|shoulder|advisory|left|right|both|lane|track)' & mkgmap:foot = no &
+	!(
+		foot 						~ '(sep[e|a]rat[e|ed]|use_sidepath)' |
+		sidewalk		 		~ '(sep[e|a]rat[e|ed]|use_sidepath)' |
+		sidewalk:left 		~ '(sep[e|a]rat[e|ed]|use_sidepath)' |
+		sidewalk:right 		~ '(sep[e|a]rat[e|ed]|use_sidepath)' |
+		sidewalk:both 		~ '(sep[e|a]rat[e|ed]|use_sidepath)' |
+		
+		foot 						~ '(no|private|permit|military|emergency)' |
+		access:foot 			~ '(no|private|permit|military|emergency)' |
+		access 					~ '(no|private|permit|military|emergency)'
+	)
+																											{add dbgmsgwarning = 'Warning (H12) - No foot allowed on highway with side options' ; add dbgcategory = 'debug - improve osm tagging'}
+
+																													 
+highway ~ '(service|residential|living_street|pedestrian|unclassified|track|footway)' & access = no &
+	bicycle ~ '(yes|designated|official|permissive|destination|customers|teachers|visitors|students|residents)' &
+	mkgmap:foot = no &
+	!(
+	jbm_route_bicycle 	= * |
+	foot 						~ '(no|use_sidepath)' |
+	access:foot 				= no |
+	bus 							~ '(yes|designated|official|permissive|destination)' |
+	psv						 	~ '(yes|designated|official|permissive|destination)' |
+	motorroad = yes
+	)
+																											{add dbgmsgwarning = 'Warning (H13) - No foot allowed on residential roads which do allow bicycle' ; add dbgcategory = 'debug - improve osm tagging'}
+mkgmap:taxi = no & mkgmap:car = yes	 &
+	!(
+	taxi = no
+	)
+																											{add dbgmsgwarning = 'Warning (H14) - Taxi not allowed where cars are allowed' ; add dbgcategory = 'debug - improve osm tagging'}
+
+maxspeed:bicycle ~ '([0-9][0-9]?[0-9]?)'	& mkgmap:bicycle = no 	{add dbgmsgwarning = 'Warning (H15) - No bicycle allowed while bicycle speedlimit set' ; add dbgcategory = 'debug - improve osm tagging'}
+
+#End unittesting / do some cleanup
+#=======================================================================================
+(dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = * | dbgmsgverbose = *) {add dbgcategory = 'debug - access unittest failed'}

@@ -1,0 +1,159 @@
+#Called from within body of file access
+#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#=======================================================================================
+#There are three variables (Bew aware
+#		jbmtransporttype			the transporttype for which the translation is done. Use it as less as possible and best keep all translations generic for all transporttypes
+#		jbmtransporttypevalue	the value as assigend in osm
+#		jbmaccesscategory  		the access calculated for this transportation type and the result of the translation
+
+#We translate everything to one of the following categories
+#		yes/no					No discussion, we mean yes or no for this transport type
+#		destination			Only access if you must be there, like residents only, could be used by the route-through flag
+#		permit					Only if you have the permit
+#		agricultural			Agricultural, offroad, forest
+#		conditional			Only from time x to time y and other conditions which this style/garmin can't really handle
+#		seasonal				Only from time x to time y which this style can't really handle
+#		betternot				Yes you can route there but it could be dangerous or not nice for the residents
+#		unknown				Nothing specified or unrecognizable value, we don't know and rely on the highway/barrier default
+
+#The most precise checks are last, but better every check should not overwrite a previous one
+#Be aware of the difference of checking with wildcard prefix/suffix (.*(test).*) or the exact word match ([u|U]nknown)
+
+#Regex tester
+#https://regex101.com/r/SQXxa7/1/
+
+#Unknown or empty
+#=======================================================================================
+jbmtransporttypevalue ~ '(-2|2|2.5|3|3.5|4|5|6|10|12|13|15|20|30|40|50|35|70|100)'																				{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+jbmtransporttypevalue ~ '(no.yes|yes.no|no..yes|yes..no)'																														{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+jbmtransporttypevalue ~ '(undefined|[d|D]esconocido|[N|n]o especificado|unclear|unspecified)'	| !(jbmtransporttypevalue=*)	{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}	
+jbmtransporttypevalue ~ '([n|N]ot.[s|S]pecified|niet nader bepaal[d|t]|maybe|[b|B]arrier|[n|N]icht angegeben|[f|F]ixme|FIXME)'		{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+jbmtransporttypevalue ~ '(nicht spezifiziert|not known|[p|P]erhaps|[u|U]nset|non specificato|inconnu|controlled)'							{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+jbmtransporttypevalue ~ '.*([u|U]nknow|[p|P]erhaps|non.sp.cifi|[s|S]conosciuto|not sure|main|exit|not.indicate|doubt).*'					{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+jbmtransporttypevalue ~ '.*([u|U]nbekan|unkown|[N|n]o especificado|questionable).*'																		{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+jbmtransporttypevalue ~ '(lift_gate|platform|date|multifamily)'																												{set jbmaccesscategory = unknown ; delete jbmtransporttypevalue}
+
+#Common values
+#=======================================================================================
+jbmtransporttypevalue ~ '.*([s|S]easonal|[s|S]ummer|[w|W]inter|[m|M]ay-[o|O]ct]|lowtide|dry_weather).*'											{set jbmaccesscategory = seasonal}
+jbmtransporttypevalue ~ '.*(permit|authori[s|z]ed|[l|L]imited|[p|P]ermission|autorizzati|licen[s|c]e|municipal).*'									{set jbmaccesscategory = permit}
+jbmtransporttypevalue ~ '.*(own.risk|unsuitable|danger|stupid|[g|G]efahr|construction).*'																	{set jbmaccesscategory = betternot_no}					#Contains
+jbmtransporttypevalue ~ '(critical|carefully)'																																			{set jbmaccesscategory = betternot_yes}					#Exact match
+jbmtransporttypevalue ~ '.*(restrained|discouraged|avoid|[s|S]chwer passierbar|SNCF).*'																	{set jbmaccesscategory = betternot_yes}					#Contains
+jbmtransporttypevalue ~ '.*(not.recommended|diffic|inadvisable).*'																										{set jbmaccesscategory = betternot_yes}					#Contains
+jbmtransporttypevalue ~ '.*([e|E]mploye|[s|S]taff|[m|M]itarbeiter|[s|S]tudent|[m|M]ember|worker|teacher).*'										{set jbmaccesscategory = betternot_yes}					#Contains
+jbmtransporttypevalue ~ '.*([f|F]orest|[f|F]orrest|[a|A]gri|[t|T]ractor|animals|horse|orchard|[p|P]irsch).*'												{set jbmaccesscategory = agricultural}
+jbmtransporttypevalue ~ '.*([p|P]art\stime|[c|C]ondition|[t|T]idal|[w|W]eekend|[v|V]ariab|yes.?\@).*'													{set jbmaccesscategory = conditional}
+jbmtransporttypevalue ~ '.*([0-9][0-9][\:\-|u]|[0-9][\:|u]|[0-9]\.[0-9]).{1,6}([0-9][0-9]?).*'																		{set jbmaccesscategory = conditional}						#07:00-19:00 / 01-08 - 01-04 / 7u tot 10u
+
+jbmtransporttypevalue ~ '([f|F]alse|none|[n|N]o|[n|N]on|[n|N]ao|[n|N]o[1-9]|-1|0|n0)'																			{set jbmaccesscategory = no}									#Exact match
+jbmtransporttypevalue ~ '(disabled|[i|I]mp.ss.ble|too small|[u|U]npassierbar|railway|proposed)'															{set jbmaccesscategory = no}									#Exact match
+jbmtransporttypevalue ~ '.*(no\s.\s|no:time|closed).*'																															{set jbmaccesscategory = no}									#Contains
+jbmtransporttypevalue ~ '.*([m|M]ilitar|[r|R]estringido|nicht passierbar|exclusion_zone|impass).*'														{set jbmaccesscategory = no}									#Contains
+jbmtransporttypevalue ~ '.*([p|P]riv|restrict|[p|P]rohibited|[n|N]o[n|t].public|[l|L]ock|key|golfers).*'														{set jbmaccesscategory = no}									#Contains
+
+#The values evaluating to yes after the no's because there could be multivalue pairs where yes winns on top of a no
+jbmtransporttypevalue ~ '(lo[c|k]al|neighbours|garage|charging)'																											{set jbmaccesscategory = destination}						#Exact match
+jbmtransporttypevalue ~ '.*([d|D]estin|noexit|no.exit|landing|abutt|local_).*'																						{set jbmaccesscategory = destination}						#Contains
+jbmtransporttypevalue ~ '.*([R|r]esident|[R|r]iverain|[a|A]nlieger|[a|A]angeland|[s|S]chool|[u|U]niver).*'												{set jbmaccesscategory = destination}						#Contains
+jbmtransporttypevalue ~ '(\*|1|[s|S][i|I]|[j|J]a|ye|[y|Y]es|YES|[t|T]rue|[x|X]|[y|Y]|[y|Y]|[O|o]ui|[s|S]im|tak)'													{set jbmaccesscategory = yes}									#Exact match
+jbmtransporttypevalue ~ '([y|Y]es.[y|Y]es..|1|up|[o|O][k|K]|[e|E]vet|si|free|preferred|practical)'																{set jbmaccesscategory = yes}									#Exact match
+jbmtransporttypevalue ~ '(both|route|dismount|signals|recommended)'																								{set jbmaccesscategory = yes}									#Exact match
+jbmtransporttypevalue ~ '([a|A]ll|[a|A]llowed|[p|P]ublic|[a|A]ccess|[o|O]nly|[o|O]pen|[p|P]assable)'														{set jbmaccesscategory = yes}									#Exact match
+jbmtransporttypevalue ~ '([e|E]xcellent|[g|G]ood|[p|P]ossible|friendly|safe|[p|P]referred|[l|L]eft|[r|R]ight)'  											{set jbmaccesscategory = yes}									#Exact match
+jbmtransporttypevalue ~ '.*(yes[\|]|[\|]yes|no[\|]|[\|]no|community|general|public).*'																				{set jbmaccesscategory = yes}									#Contains a yes (forget the eventually no's, parts are routable)
+jbmtransporttypevalue ~ '.*(roadside|sunrise|sunset|escape.route|opening.hours).*'  																			{set jbmaccesscategory = yes}									#Contains
+jbmtransporttypevalue ~ '.*([p|P]ermiss|tolerated|informal|share.busway).*'																							{set jbmaccesscategory = yes}									#Contains
+jbmtransporttypevalue ~ '.*(designated|official|dedicated|exclusive|expres|mandatory).*'																	{set jbmaccesscategory = yes}									#Contains
+jbmtransporttypevalue ~ '.*(c.st.mer|consumer|visitor|guest|client|patient|passenger).*'																		{set jbmaccesscategory = destination}									#Contains
+
+#Assignment of roadtype to access class
+#=======================================================================================
+jbmtransporttypevalue ~ '(bridge|viaduct|driveway|living_street|junction|highway|secondary|tertiary|parking_aisle|asphalt)'			{set jbmaccesscategory = unknown}
+jbmtransporttypevalue ~ '(footway|path|track|[s|S]tep|[s|S]teps|gate)' & jbmtransporttype != foot														{set jbmaccesscategory = unknown ; add jbmfoot = yes}
+jbmtransporttypevalue ~ '(footway|path|track|[s|S]tep|[s|S]teps|gate)' & jbmtransporttype = foot														{set jbmaccesscategory = yes}
+
+#Strange way of tagging where for example foot=only, this implies in general that all others (car, bus etc) are not
+#=======================================================================================
+jbmtransporttypevalue = only 										& jbmtransporttype = foot 																			{set jbmaccesscategory = yes}
+jbmtransporttypevalue = only 										& jbmtransporttype = bicycle 																		{set jbmaccesscategory = yes}
+jbmtransporttypevalue = only 										& jbmtransporttype = car 																				{set jbmaccesscategory = yes ; add jbmemergency = yes}
+jbmtransporttypevalue = only 										& jbmtransporttype = taxi 																				{set jbmaccesscategory = yes ; add jbmemergency = yes}
+jbmtransporttypevalue = only 										& jbmtransporttype = truck 																			{set jbmaccesscategory = yes ; add jbmemergency = yes}
+jbmtransporttypevalue = only 										& jbmtransporttype = bus 																				{set jbmaccesscategory = yes ; add jbmemergency = yes}
+jbmtransporttypevalue = only 										& jbmtransporttype = emergency 																	{set jbmaccesscategory = yes}
+jbmtransporttypevalue = only										& jbmtransporttype = delivery 																		{set jbmaccesscategory = yes ; add jbmemergency = yes}
+
+#Strange way of tagging where the transportation type is assigned as an access value
+#=======================================================================================
+jbmtransporttypevalue ~ '(train|subway)'																																																			{set jbmaccesscategory = no}
+jbmtransporttypevalue ~ '([f|F]oot|pedestrian|personas|peatonal|hiking|only walking|door|wheelchair|[i|n|r|l]wn)' 	& jbmtransporttype = foot	 										{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '([f|F]oot|pedestrian|personas|peatonal|hiking|only walking|door|wheelchair|[i|n|r|l]wn)' 	& jbmtransporttype != foot 										{set jbmaccesscategory = no ; add jbmfoot = yes}
+jbmtransporttypevalue ~ '(bicycle|bike|cycle|wheelchair|[i|n|r|l]cn)' 																				& jbmtransporttype = bicycle 									{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '(bicycle|bike|cycle|wheelchair|[i|n|r|l]cn)' 																				& jbmtransporttype != bicycle									{set jbmaccesscategory = no ; add jbmbicycle = yes}
+jbmtransporttypevalue ~ '(car|cars|motorcar|caravan)'																									& jbmtransporttype ~ '(car|taxi|emergency)' 				{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '(car|cars|motorcar|caravan)'																							 		& !(jbmtransporttype ~ '(car|taxi|emergency)')
+																																			{set jbmaccesscategory = no ; add jbmcar = yes ; add jbmtaxi = yes ; add jbmemergency = yes}
+jbmtransporttypevalue ~ '(vehicle|motor_vehicle|motorvehicle)' 																					& jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)' 		{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '(vehicle|motor_vehicle|motorvehicle)'																					& !(jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)')
+																																			{set jbmaccesscategory = no ; add jbmcar = yes ; add jbmtaxi = yes ; add jbmtruck = yes ; add jbmbus = yes ; add jbmemergency = yes}
+jbmtransporttypevalue ~ '.*([t|T]axi).*'																															& jbmtransporttype ~ '(taxi|emergency)' 					{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '.*([t|T]axi).*'	 																														& !(jbmtransporttype ~ '(taxi|emergency)')
+																																			{set jbmaccesscategory = no ; add jbmtaxi = yes ; add jbmemergency = yes}
+jbmtransporttypevalue ~ '([b|B]us|psv|bus.only|trolleybus|public.transport|buss?es|tourist.bus)'									& jbmtransporttype ~ '(bus|emergency)'					{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '([b|B]us|psv|bus.only|trolleybus|public.transport|buss?es|tourist.bus)'									& !(jbmtransporttype ~ '(bus|emergency)')
+																																			{set jbmaccesscategory = no ; add jbmbus = yes ; add jbmemergency = yes}
+jbmtransporttypevalue ~ '.*(truck|hgv|hsv|lorry|low.loader).*'																						& jbmtransporttype ~ '(truck|emergency)' 				{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '.*(truck|hgv|hsv|lorry|low.loader).*' 																						& !(jbmtransporttype ~'(truck|emergency)')
+																																			{set jbmaccesscategory = no ; add jbmtruck = yes ; add jbmemergency = yes}
+jbmtransporttypevalue ~ '.*([e|E]merg|[s|S]ervice|rescue|[p|P]olice|[f|F]ire|[a|A]mbu|manage|pta).*'								& jbmtransporttype = emergency 								{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '.*([e|E]merg|[s|S]ervice|rescue|[p|P]olice|[f|F]ire|[a|A]mbu|manage|pta).*'								& jbmtransporttype != emergency 							{set jbmaccesscategory = no ; add jbmemergency = yes}
+jbmtransporttypevalue ~ '.*(phone|assembly|siren|water|barrier|point).*'																		& jbmtransporttype = emergency 								{set jbmaccesscategory = no}
+
+jbmtransporttypevalue ~ '.*(delivery|goods|supplier).*'																									& jbmtransporttype ~ '(foot|bicycle|delivery|emergency)' 			{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '.*(delivery|goods|supplier).*' 																								& !(jbmtransporttype ~ '(foot|bicycle|delivery|emergency)')
+																																			{set jbmaccesscategory = no ; add jbmdelivery = yes ; add jbmemergency = yes}
+#Assignment of other vehicletype then yet supported
+#=======================================================================================
+jbmtransporttypevalue ~ '.*([m|M]oped|[m|M]ofa]|[m|M]otorbike|[m|M]otorcycle|snow).*' 											& jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)'		{set jbmaccesscategory = no}
+jbmtransporttypevalue ~ '.*([G|g]olf|[B|b]uggy|offroad|4x4|horse|quad|enduro|motos|snow).*'									& jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)'		{set jbmaccesscategory = no}
+jbmtransporttypevalue ~ '.*(motorhome|camping.car).*'																								& jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)'		{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '.*(electric.cars).*'																													& jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)'		{set jbmaccesscategory = yes}
+jbmtransporttypevalue ~ '(sheep|animals|camel)'																																																							{set jbmaccesscategory = no}
+jbmtransporttypevalue ~ '.*(site.vehicles).*'																																																						{set jbmaccesscategory = no}
+
+#hov = high occupance vehicles / carpool
+jbmtransporttypevalue ~ '(hov)'																																		& jbmtransporttype ~ '(car|taxi|bus|truck|delivery|emergency)'		{set jbmaccesscategory = yes}
+
+#Non access values
+#=======================================================================================
+jbmtransporttypevalue ~ '([t|T]oll|[p|P]eage|[f|F]ee|[t|T]icket|paid|[m|M]aut)'																																										{set jbmaccesscategory = yes	; add mkgmap:toll = yes}
+
+#Double check to make sure wildcard searches did not accidentially overwrite the most obvious
+#=======================================================================================
+jbmtransporttypevalue ~ '(yes|permissive|designated|official)' & jbmaccesscategory != yes 								
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = no & jbmaccesscategory != no 								
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = destination & jbmaccesscategory != destination 	
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = conditional & jbmaccesscategory != conditional 	
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = permit & jbmaccesscategory != permit					
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = betternot & !(jbmaccesscategory ~ '(betternot|betternot_yes|betternot_no)')			
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = agricultural & jbmaccesscategory != agricultural	
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = seasonal & jbmaccesscategory != seasonal 			
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+jbmtransporttypevalue = unknown & jbmaccesscategory != unknown 			
+		{set jbmaccesscategory = '$(jbmtransporttypevalue)' ; set dbmsginfo = 'Wrong wildcard access rule found for $(jbmtransporttypevalue)' ; set dbgcategory = 'debug - access translation failed'}
+
+##Debug
+#=======================================================================================
+#jbmtransporttype = foot {set dbgat8 ='jbmaccesscategory=$(jbmaccesscategory)' | empty}
+#jbmtransporttype = foot {set dbgat9='jbmtransporttypevalue=$(jbmtransporttypevalue)' | empty}

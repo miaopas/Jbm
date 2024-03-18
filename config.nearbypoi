@@ -1,0 +1,38 @@
+#Optionally used on the mkgmap commandline to limit cluttering of poi;s
+#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#
+#Best viewed in notepad++ syntax C# or normal text
+#For every code only one rule may apply
+#=======================================================================================
+#*/named:100						#Any with a name
+#*/unnamed:100					#Any without a name
+#0x2b03:100							#Tree, only used when testing to make sure the correct cofnig files is in use
+0x2a19:15								#Silo
+0x2a09:10								#Bench
+0x2a13:10								#Car charger
+0x2a0b:20								#Bin
+0x2a0c:20								#Bin
+0x2a0e:20								#Recycling
+0x2c0d-0x2c14/named:20	#Churches and religions on level 24
+0x2c06:20								#Playground
+0x2d10-0x2d12:10				#Entrances
+0x2d0b:20								#Fitness
+0x2d13:7								#Fountain
+0x2f18:10								#Bicycle parking
+0x2f0b:30								#Car parking
+0x2803:20								#Viewpoint
+0x300a:7									#Docter
+0x3a03-0x3a0a:40					#Churches and religions lower zoomlevels
+0x5001:20								#Hospital
+0x5a01:50								#Camping tent
+0x5a02:50								#Camping car
+0x5906:20								#Bus station
+0x5a04:10								#Picknick table
+0x641d-0x641f:20					#Fixme request
+0x6403:40								#Cemetry labels
+0x6418:25								#Chalet
+0x6602:40								#Bunker
+0x670f	:100								#Cooling tower
+0x680a:50								#Fuelstations on lower zoomlevels

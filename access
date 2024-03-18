@@ -1,0 +1,555 @@
+﻿#Called from within lines file and points to calculate the access tags
+#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#=======================================================================================
+#Include country specific access rules that are derived from the highway type
+#=======================================================================================
+#include 'inc/access_country';			#This mkgmap defaultstyle file still can set foot = yes which makes analysis a bit more difficult.
+
+#Finally all mkgmap tags are set to the equivalent osm tag.
+#1) mkgmap:foot = no				osm:	foot
+#2) mkgmap:bicycle = no			osm:	bicycle
+#3) mkgmap:car = no					osm:	vehicle / motor_vehicle / motorcar
+#4) mkgmap:taxi = no					osm:	taxi
+#5) mkgmap:truck = no				osm:	hgv / truck
+#6) mkgmap:bus = no				osm:	psv / bus
+#7) mkgmap:emergency = no		osm:	emergency
+#8) mkgmap:delivery = no			osm:	delivery / goods
+
+#Debug
+#=======================================================================================
+#highway = * & osmid() = 346478082 {set dbglevel = custom}
+#() {set dbga1 = 'jbmfoot=$(jbmfoot)' | empty}
+#() {set dbga2 = 'jbmfoot=$(jbmfoot)' | empty}
+#End Debug
+
+#Explanation of the access handling process
+#=======================================================================================
+#https://wiki.openstreetmap.org/wiki/Key:access
+#In general you can specify an individual access for every transportation method with the osm tags: foot, car and bicycle etc.
+#Or failover to a optional general access tag. According to the wiki, the most specific is to be used. If no specific tag for car, foot or bicycle is set, then use the general access tag
+#And if no general access tag is available as well then come up with a default access.
+#The default access is first based on the highway type or barrier type and if we can still not decide then there are two options
+#Deny access / Allow access. Previously i decided to deny on barriers and allow on highways but the barrier access is rarely set correctly blocking too much hiking and cycling routes
+#So i decided it's  allowed as from 21-2-2021
+
+#Comments
+#=======================================================================================
+#We only use variables to keep the original osm tags unaltered which is easier for debugging and a more clean approach
+#Only for routable objects, which could also be a ferry
+#We mostly use the 'add' method which will only change the access value for that transportation mode if not already set before.
+#If we use the set-method then the previous assignments are considered to be overwritten. This is the case during translation and when the value is still 'unknown' 
+
+#This results in the following steps
+#=======================================================================================
+#Step 1) Fix nonsens
+#Step 2) If toll:specific=yes then access can not be no
+#Step 3) Read specific foot, vehicle, truck tags
+#Step 4) Add access based on the highway type for transportations that do not have possible multiple lanes on single highway line (that is everything except foot/bicycle)
+#Step 5) Per transportation mode translate whatever values get out of these assignements in a subset of categories (yes, no, destination, permit, agricultural, seasonal, conditional, betternot_yes, betternot_no)
+#Step 6) Per transportationmode we translate the categories to a yes or no
+#Step 7) Still a access value found that is not a yes/no  then look at the highway type again and make it a yes or no
+
+#Step 1 Fix 'nonsens' (cycling and walking on sidepaths forbidden but also possible)
+bicycle = no 	& cycleway:bicycle 			~ '(yes|designated|official|permissive|dismount)'									{add jbmbicycle = yes}		#shared_lane, track
+bicycle = no 	& cycleway:left:bicycle 	~ '(yes|designated|official|permissive|dismount)'									{add jbmbicycle = yes}
+bicycle = no 	& cycleway:right:bicycle ~ '(yes|designated|official|permissive|dismount)'									{add jbmbicycle = yes}
+bicycle = no 	& cycleway:both:bicycle	~ '(yes|designated|official|permissive|dismount)'									{add jbmbicycle = yes}
+
+bicycle = no 	& sidewalk:bicycle			~ '(yes|designated|official|permissive|dismount|shared)'						{add jbmbicycle = yes}
+bicycle = no 	& sidewalk:left:bicycle	~ '(yes|designated|official|permissive|dismount|shared)'						{add jbmbicycle = yes}
+bicycle = no 	& sidewalk:right:bicycle 	~ '(yes|designated|official|permissive|dismount|shared)'						{add jbmbicycle = yes}
+bicycle = no 	& sidewalk:both:bicycle	~ '(yes|designated|official|permissive|dismount|shared)'						{add jbmbicycle = yes}
+
+foot = no 		& sidewalk:foot 				~ '(yes|designated|official|permissive)'													{add jbmfoot = yes}
+foot = no 		& sidewalk:left:foot 		~ '(yes|designated|official|permissive)'													{add jbmfoot = yes}
+foot = no 		& sidewalk:right:foot 		~ '(yes|designated|official|permissive)'													{add jbmfoot = yes}
+foot = no 		& sidewalk:both:foot 		~ '(yes|designated|official|permissive)'													{add jbmfoot = yes}
+
+foot = no 		& cycleway:foot 				~ '(yes|designated|official|permissive|shared)'										{add jbmfoot = yes}
+foot = no			& cycleway:left:foot 		~ '(yes|designated|official|permissive|shared)'										{add jbmfoot = yes}
+foot = no			& cycleway:right:foot 		~ '(yes|designated|official|permissive|shared)'										{add jbmfoot = yes}
+foot = no			& cycleway:both:foot 		~ '(yes|designated|official|permissive|shared)'										{add jbmfoot = yes}
+
+#Exclude
+bicycle ~ '(yes|designated|official|permissive)' & highway ~ '(path|track)' & (class:bicycle=-3 | mtb:scale > 2) 	{add jbmbicycle = no}
+bicycle ~ '(yes|designated|official|permissive)' & highway ~ '(path|track)' & bicycle:designated:type = mtb		{add jbmbicycle = mtb}
+
+ #Finetuning on stuff we never get to manage in garmin routing anyway
+bicycle:backward 	~ '(yes|permissive|designated|official|dismount)'	& bicycle:forward = no 		& highway ~ '(footway|path|cyleway|bridleway|track)'			{add jbmbicycle = yes}
+bicycle:forward 	~ '(yes|permissive|designated|official|dismount)'	& bicycle:backward = no 	& highway ~ '(footway|path|cyleway|bridleway|track)'			{add jbmbicycle = yes}
+bicycle:backward 	~ '(yes|permissive|designated|official|dismount)'	& bicycle = no 					& highway ~ '(footway|path|cyleway|bridleway|track)'						{add jbmbicycle = yes}
+bicycle:forward 	~ '(yes|permissive|designated|official|dismount)'	& bicycle = no 					& highway ~ '(footway|path|cyleway|bridleway|track)'							{add jbmbicycle = yes}
+
+bicycle:backward = no & cycleway:right = lane & highway = primary																	{add jbmbicycle = yes}
+bicycle:backward = use_sidepath & cycleway:right = lane																					{add jbmbicycle = yes}
+bicycle:forward = use_sidepath & cycleway:left = track																							{add jbmbicycle = yes}
+bicycle:backward = dismount & highway = path & (mtb:scale:uphill ~ '([3-5])' | mtb:scale ~ '([3-5])')				{add jbmbicycle = no}
+access = no & speed_pedelec = no & bicycle != *																								{add jbmbicycle = no}
+
+#Some irrelevant cycleroutes may have added access to trunks/motorways
+jbm_route_network_ucn = true & highway ~ '(motorway|trunk).*' & bicycle !=* & access !=* & !(jbm_route_bicycle ~ '(.cn)')			{delete jbmbicycle}
+jbm_route_network_ucn = true & motorroad = yes & bicycle !=* & access !=* & !(jbm_route_bicycle ~ '(.cn)')									{delete jbmbicycle}
+
+#Step 3 - Add the current values as available on the highways without altering the original values. Only use real access tags, not the highway tags
+#Start with the most specific and add deeper and deeper in the hierarchy. See als the wiki. The order of the assigment is very important
+#Be aware that for sidewalks you can end up with a 'no' for the sidewalk not necessarily mean a 'no' to the main highway, so translate these to unknown which later on is treated as to be derived from the highway
+()	{add jbmfoot 			= '$(foot)' | '$(access:foot)' | 
+											'$(sidewalk:foot)' | '$(sidewalk:right:foot)' | '$(sidewalk:left:foot)' | '$(sidewalk:both:foot)' |
+											'$(footway:foot)' | '$(footway:right:foot)' | '$(footway:left:foot)' | '$(footway:both:foot)' |
+											'$(cycleway:foot|subst:"no=>unknown")' | '$(cycleway:right:foot|subst:"no=>unknown")' | '$(cycleway:left:foot|subst:"no=>unknown")' | '$(cycleway:both:foot|subst:"no=>unknown")'
+											}
+()	{add jbmbicycle 		= '$(bicycle)' | '$(access:bicycle)' | '$(bike)' |
+											'$(cycleway:bicycle)' | '$(cycleway:left:bicycle)' | '$(cycleway:right:bicycle)' | '$(cycleway:both:bicycle)' |
+											'$(sidewalk:bicycle|subst:"no=>unknown")' | '$(sidewalk:left:bicycle|subst:"no=>unknown")' | '$(sidewalk:right:bicycle|subst:"no=>unknown")' | '$(sidewalk:both:bicycle|subst:"no=>unknown")' |
+											'$(footway:bicycle|subst:"no=>unknown")' | '$(footway:left:bicycle|subst:"no=>unknown")' | '$(footway:right:bicycle|subst:"no=>unknown")' | '$(footway:both:bicycle|subst:"no=>unknown")' |
+											'$(shoulder:access:bicycle|subst:"no=>unknown")' | '$(speed_pedelec|subst:"no=>unknown")' |
+											'$(bicycle:backward)' | '$(bicycle:forward)'
+											 }
+()	{add jbmcar 				= '$(motorcar)' |'$(access:motorcar)' | '$(access:car)' | '$(car)' | '$(motor_vehicle)' | '$(access:motor_vehicle)' | '$(vehicle)' | '$(access:vehicle)'}
+()	{add jbmtaxi 				= '$(taxi)' | '$(access:taxi)' | '$(jbmcar)'}
+()	{add jbmtruck 			= '$(hgv)' | '$(truck)' | '$(access:hgv)' | '$(bdouble)' | '$(access:bdouble|subst:"no=>unknown>")' | '$(lhv)' | '$(access:lhv)' | '$(hvg)' | '$(access:hvg)' |'$(jbmcar)'}
+()	{add jbmbus 				= '$(psv)' | '$(bus)' | '$(access:bus)' | '$(access:psv)' | '$(coach)' | '$(shoulder:right:access:psv:"no=>unknown")' | '$(jbmcar)'}
+()	{add jbmdelivery 		= '$(goods)' | '$(access:goods)' | '$(access:delivery)' | '$(delivery)' | '$(jbmcar)'}
+()	{add jbmemergency 	= '$(emergency)' | '$(access:emergency)'}
+#If none of the above values for a category was available then the jbm-variables are still empty by now accepting an 'add jbmcar' or 'add jbmbus' on the next lines as a possible value
+
+#Trivia
+hiking ~ '(yes|designated|mountain_hiking|path|footway|track|mountain|l.n|route)'																	{add jbmfoot = yes}
+sac_scale ~ '(hiking|mountain_hiking|demanding_mountain_hiking|alpine_hiking)'																	{add jbmfoot = yes}
+access ~ '(bus|psv|delivery|hgv|emergency)' & highway 					~ '(residential|living_street|unclassified|road)'  				{add jbmfoot = yes}
+access ~ '(bus|psv|delivery|hgv|emergency)' & highway 					~ '(residential|living_street|unclassified|road)' 		 		{add jbmbicycle = yes}
+access ~ '(bus|psv|delivery|hgv|emergency)' & (cycleway = * | cycleway:left = * | cycleway:right = * | cycleway:both = *)		{add jbmbicycle = yes}
+access ~ '(bus|psv|delivery|hgv|emergency|taxi)' & sidewalk 			~ '(left|right|both)' 															{add jbmfoot = yes}
+access ~ '(bus|psv|delivery|hgv|emergency|taxi)' & sidewalk:left 		~ '(yes|designated|official|permissive)'							{add jbmfoot = yes}
+access ~ '(bus|psv|delivery|hgv|emergency|taxi)' & sidewalk:right 	~ '(yes|designated|official|permissive)'							{add jbmfoot = yes}
+access ~ '(bus|psv|delivery|hgv|emergency|taxi)' & sidewalk:both	~ '(yes|designated|official|permissive)'								{add jbmfoot = yes}
+access = yes & motorroad = yes																																				{add jbmfoot = unknown ; add jbmbicycle = unknown}
+maxspeed:bicycle ~ '([0-9][0-9]?[0-9]?)'																																		{add jbmbicycle = yes}
+maxspeed:psv ~ '([0-9][0-9]?[0-9]?)'																																			{add jbmbus = yes}
+maxspeed:bus ~ '([0-9][0-9]?[0-9]?)'																																			{add jbmbus = yes}
+maxspeed:coach ~ '([0-9][0-9]?[0-9]?)'																																		{add jbmbus = yes}
+maxspeed:motorcar ~ '([0-9][0-9]?[0-9]?)'																																	{add jbmcar = yes}
+
+access = no & agricultural ~ '(yes|designated|official|permissive)' &
+																											jbmbicycle ~ '(yes|designated|official|permissive)'			{add jbmfoot = yes}
+access = no & highway ~ '(path|footway|pedestrian|bridleway|track|residential|living_street|unclassified|service)' &
+																											jbmbicycle ~ '(yes|designated|official|permissive)'			{add jbmfoot = yes}		
+highway = footway & proposed:bicycle ~ '(yes|designated|official|permissive)'																		{add jbmbicycle = yes}
+highway = footway & cycleway:surface = *																																{add jbmbicycle = yes}
+highway = footway & cycleway:est_width = *																															{add jbmbicycle = yes}
+highway = footway & cycleway = sidewalk																																{add jbmbicycle = yes}
+
+access = no & highway = * &
+											(cycleway ~ '(lane|track)' | cycleway:left ~ '(lane|track)' | cycleway:right ~ '(lane|track)'	)			{add jbmbicycle = yes}
+
+#Step 2 - Toll indicates access, 99,9% of taginfo is either yes or no
+toll:foot = yes																					{add mkgmap:toll = yes ; add jbmfoot = yes}
+toll:bicycle = yes																				{add mkgmap:toll = yes ; add jbmbicycle = yes}
+toll:motorcar = yes																			{add mkgmap:toll = yes ; add jbmcar = yes ; add jbmtaxi = yes}
+toll:motor_vehicle = yes																	{add mkgmap:toll = yes ; add jbmcar = yes ; add jbmtaxi = yes}
+toll:motorcycle = yes																		{add mkgmap:toll = yes}
+toll:bus = yes																					{add mkgmap:toll = yes ; add jbmbus = yes}
+toll:psv = yes																					{add mkgmap:toll = yes ; add jbmbus = yes}
+toll:hgv = yes																					{add mkgmap:toll = yes ; add jbmtruck = yes}
+
+#=======================================================================================
+#1) Foot
+#=======================================================================================
+() {delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmfoot)' | '$(access)' | 'unknown' ; set jbmtransporttype = foot}
+include 'access_translations';
+() {set jbmfoot =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmfoot = destination		{set jbmfoot = yes}
+jbmfoot = permit				{set jbmfoot = no}
+jbmfoot = agricultural		{set jbmfoot = yes}
+jbmfoot = seasonal			{set jbmfoot = yes}
+jbmfoot = conditional		{set jbmfoot = no}
+jbmfoot = betternot_yes	{set jbmfoot = yes}
+jbmfoot = betternot_no	{set jbmfoot = no}
+
+#Other
+jbmfoot ~ '(use_sidepath|use_sidewalk|sep[e|a]rat[e|ed])'				{set jbmfoot = no}	#Separate line available
+jbmfoot ~ '([s|S]idewalk|[s|S]egregated|lane|shared|roadside)'		{set jbmfoot = yes}
+jbmfoot ~ '(steps|stairs|crossing)'													{set jbmfoot = yes}
+
+#Unknown, select from the sideway
+if (jbmfoot = * & !(jbmfoot ~ '(yes|no)')) then
+	#Sidewalks that are drawn separatly
+	sidewalk		 		~ '(sep[e|a]rat[e|ed]|separate_double)' 			{set jbmfoot = no}
+	sidewalk:left 		~ '(sep[e|a]rat[e|ed]|separate_double)' 			{set jbmfoot = no}
+	sidewalk:right		~ '(sep[e|a]rat[e|ed]|separate_double)' 			{set jbmfoot = no}
+	sidewalk:both 		~ '(sep[e|a]rat[e|ed]|separate_double)' 			{set jbmfoot = no}
+	
+	#Other sidewalks to be part of the sideway
+	sidewalk		 		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+	sidewalk:left 		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+	sidewalk:right		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+	sidewalk:both 		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+
+	footway 				~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+	footway:left 		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+	footway:right 		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+	footway:both 		~ '(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|sidepath|sidewalk|access_aisle)' 			{set jbmfoot = yes}
+end
+
+#Debug logging for not translated values
+jbmfoot = * & !(jbmfoot ~ '(yes|no|unknown)')					{add dbgaccess = '(jbmfoot=$(jbmfoot))' ; set jbmfoot = unknown}
+
+#Default to highway type as a last resort, based on the default country settings
+jbmfoot = unknown & highway ~ '(motorway).*'																								{set jbmfoot = no}
+jbmfoot = unknown & motorroad = yes																											{set jbmfoot = no}	
+jbmfoot = unknown & highway ~ '(trunk).*'								& mkgmap:admin_level2 ~ '(BEL|NLD|AUT|DNK|FRA|HUN|POL|SVK|CHE)'									{set jbmfoot = no}
+jbmfoot = unknown & highway ~ '(trunk).*'																										{set jbmfoot = yes}
+jbmfoot = unknown & highway ~ '(bridleway)'							& mkgmap:admin_level2 ~ '(BEL|NLD|ISL|NOR|OMN|PHL|ROU|GBR|USA)'									{set jbmfoot = yes}
+jbmfoot = unknown & highway ~ '(bridleway)'																									{set jbmfoot = no}
+jbmfoot = unknown & highway ~ '(cycleway)' & segregated = * 																	{set jbmfoot = yes}		#If the mapper specified if the cycleway is segregated (yes/no) then you can walk there for sure									
+jbmfoot = unknown & highway ~ '(cycleway)'							& mkgmap:admin_level2 ~ '(BEL|NLD|HUN|ISL|OMN|PHL|POL|RUS|SVK|CHE|TUR|GBR|USA)'		{set jbmfoot = yes}
+jbmfoot = unknown & highway ~ '(cycleway)' 																									{set jbmfoot = no}
+jbmfoot = unknown & highway ~ '(bus_guideway|busway)'																				{set jbmfoot = no}
+
+jbmfoot = unknown & highway = *																													{set jbmfoot = yes}																									
+jbmfoot = unknown & route = ferry 																													{set jbmfoot = yes}	
+jbmfoot = unknown & man_made = pier																											{set jbmfoot = yes}	
+jbmfoot = unknown & barrier = *																														{set jbmfoot = yes}																									
+
+#=======================================================================================
+#2) Bicycle
+#=======================================================================================
+()	{delete jbmaccesscategory ;  set jbmtransporttypevalue = '$(jbmbicycle)' | '$(access)' | 'unknown' ; set jbmtransporttype = bicycle}
+include 'access_translations';
+()	{set jbmbicycle =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmbicycle = destination		{set jbmbicycle = yes}
+jbmbicycle = permit			{set jbmbicycle = no}
+jbmbicycle = agricultural		{set jbmbicycle = unknown}				#Can be a yes : tracktype grade 1 or highway = service but also a no for tracktype grade 3, let other parameters decide
+jbmbicycle = seasonal			{set jbmbicycle = yes}
+jbmbicycle = conditional		{set jbmbicycle = no}
+jbmbicycle = betternot_yes	{set jbmbicycle = yes}
+jbmbicycle = betternot_no	{set jbmbicycle = no}
+
+#Other
+jbmbicycle ~ '(use_sidepath|use_sidewalk|sep[e|a]rat[e|ed])'								{set jbmbicycle = no}		#The official tagging > there is also a 'separated parallel' cycleway drawn on the map
+jbmbicycle ~ '.*(lane|track|optional_sidepath|opposite|shared|shoulder).*'		{set jbmbicycle = yes}		#The not official way of tagging, we assume there is not a parallel way, so for routing use this mainroad
+jbmbicycle ~ '.*([d|D]ismo|[w|W]alk|[c|C]arry|push).*'											{set jbmbicycle = yes}		#We assume that dismount is used for places where you can go by bike in hand, so routing should be possible		
+jbmbicycle ~ '([s|S]teps|[s|S]tairs|crossing)'															{set jbmbicycle = yes}		#If specified as accesstype we assume the mapper wants to tell us that it is oke.
+jbmbicycle ~ '(.[c|C][n|N])'																					{set jbmbicycle = yes}		#LCN, RCN, NCN, ICN, UCN Cycle networks
+
+#Unknown, select from the sideway
+if (jbmbicycle = * & !(jbmbicycle ~ '(yes|no)')) then
+	cycleway 			~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|sidewalk|access_aisle|opposite|shoulder|path|street|sideride|link)'
+										{set jbmbicycle = yes}
+	cycleway:left		~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|sidewalk|access_aisle|opposite|shoulder|path|street|sideride|link)'
+										{set jbmbicycle = yes}
+	cycleway:right 	~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|sidewalk|access_aisle|opposite|shoulder|path|street|sideride|link)'
+										{set jbmbicycle = yes}
+	cycleway:both 	~ '.*(yes|designated|official|permissive|left|right|both|raised|shared|lane|line|track|segregated|busway|path|sidewalk|access_aisle|opposite|shoulder|path|street|sideride|link)'
+										{set jbmbicycle = yes}
+
+	(highway = track & (tracktype ~ '(grade1|1)' | tracktype ~ '.*(grade1)'))																													{set jbmbicycle = yes}
+	(highway = cycleway	| bicycle_road  ~ '(yes|designated|official|permissive)' | cycle_street  ~ '(yes|designated|official|permissive)')						{set jbmbicycle = yes}
+	(lcn ~ '(yes|proposed)' | ncn ~ '(yes|proposed)' | rcn ~ '(yes|proposed)' | icn ~ '(yes|proposed)')																																								{set jbmbicycle = yes}
+	(class:bicycle ~ '(\-2|\-1|0|1|2|3)' | class:bicycle:commute ~ '(\-2|\-1|0|1|2|3)' | class:bicycle:touring ~ '(\-2|\-1|0|1|2|3)' |
+	class:bicycle:trailer ~ '(\-2|\-1|0|1|2|3)' | class:bicycle:non_experienced ~ '(\-2|\-1|0|1|2|3)'  | class:bicycle:roadcycling ~ '(\-2|\-1|0|1|2|3)') &
+	!(
+		class:bicycle:mtb = * | sac_scale ~ '(hiking)'
+	)																																																									{set jbmbicycle = yes}
+	highway ~ '(path|cycleway|footway|bridleway|track)' & proposed:bicycle ~ '(yes|designated|official|permissive)'													{set jbmbicycle = yes}
+end
+
+#Steps with ramp before mtb
+if (jbmbicycle = * & !(jbmbicycle ~ '(yes|no)') & highway ~ '(steps)') then
+		ramp 						~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle)' |
+		ramp:bicycle 			~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle)' |
+		ramp:bicycle:left 		~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle)' |
+		ramp:bicycle:right 	~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle)' |
+		ramp:stroller 			~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle)' |
+		ramp:wheelchair		~ '(yes|designated|official|permissive|left|right|both|automatic|dismount|sep[e|a]rat[e|ed]|wheelchair|bicycle)'						{set  jbmbicycle = yes}
+end
+
+#Test for all kinds of mtb to exclude even if bicycle = yes
+jbmbicycle ~ '([m|M]b|[b|B][m|M][x|X])'																															{set jbmbicycle = mtb ; set jbmbicycletype = mtb}
+jbmbicycle ~ '.*([m|M]ountain|Anillos Ciclomonta|[v|V][t|T][t|T]|MTB|[m|M]tb|freeride).*'												{set jbmbicycle = mtb ; set jbmbicycletype = mtb}
+jbmbicycle = unknown & (class:bicycle:mtb = * | sport = via_ferrata | mtb:scale = * | mtb = yes | sac_scale = *	)	{set jbmbicycle = mtb ; set jbmbicycletype = mtb}
+
+jbmbicycle = mtb & !(highway ~ '(track|path|footway|bridleway|steps)')													{set jbmbicycle = unknown}		#Mtb on main highway types is the same as normal bicycle
+jbmbicycle = mtb & mtb:scale ~ '(0|0\+|0\-)'	& sac_scale != *	& highway != steps									{set jbmbicycle = yes}
+jbmbicycle ~ '(mtb|unknown)' & highway ~ '(track|path)' &
+			mkgmap:unpaved = 0 & !(mtb:scale ~ '([1-6])' | mtb:scale:uphill ~ '([1-6])' | sac_scale = *) 		{set jbmbicycle = yes}		#Mtb or unknown on paved roads, except footway and bridleway which in most countries is default to not allow bicycles at all
+jbmbicycle = mtb & (barrier = * & highway !=*)																						{set jbmbicycle = yes}
+jbmbicycle = mtb 																																		{set jbmbicycle = no}
+
+#A track which is oke for cars and no specific bicycle access is set is to be considered accessible for bicycle. This way we avoid too many tracks to be unreachable
+if (highway ~ '(track|footway|pedestrian)' & !(jbmbicycle ~ '(yes|no)')) then
+	(
+	vehicle ~ 					'(yes|designated|official|permissive|destination)' |
+	motor_vehicle ~ 		'(yes|designated|official|permissive|destination)' |
+	motorcar ~ 				'(yes|designated|official|permissive|destination)'
+	) 																																								{set jbmbicycle = yes}
+end
+
+#Debug logging for not translated values
+jbmbicycle = * & !(jbmbicycle ~ '(yes|no|unknown)')					{add dbgaccess = '(jbmbicycle=$(jbmbicycle))' ; set jbmbicycle = unknown}
+
+#Default to highway type as a last resort, based on the default country settings or the specific (https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Access_restrictions#Switzerland)
+jbmbicycle = unknown & highway ~ '(motorway).*'						& mkgmap:admin_level2 ~ '(OMN)'			{set jbmbicycle = yes}
+jbmbicycle = unknown & highway ~ '(motorway).*'																					{set jbmbicycle = no}
+jbmbicycle = unknown & motorroad = yes																								{set jbmbicycle = no}	
+jbmbicycle = unknown & highway ~ '(trunk).*'								& mkgmap:admin_level2 ~ '(AUT|BEL|DNK|FRA|HUN|NLD|POL|SVK|CHE)'			{set jbmbicycle = no}
+jbmbicycle = unknown & highway ~ '(trunk).*'																							{set jbmbicycle = yes}
+jbmbicycle = unknown & highway = bridleway								& mkgmap:admin_level2 ~ '(BRA|ISL|OMN|ROU|GBR|USA)'									{set jbmbicycle = yes}
+jbmbicycle = unknown & highway = bridleway																							{set jbmbicycle = no}
+jbmbicycle = unknown & highway = pedestrian							& mkgmap:admin_level2 ~ '(AUS|AUT|BLR|BEL|BRA|FRA|FIN|DEU|ISL|ITA|NOR|PHL|ROU|RUS|SPA|UKR|USA)'	{set jbmbicycle = yes}
+jbmbicycle = unknown & highway = pedestrian																						{set jbmbicycle = no}
+jbmbicycle = unknown & highway = footway 								& mkgmap:admin_level2 ~ '(AUT|BLR|BRA|DEU|ISL|NOR|ROU|RUS|UKR)'				{set jbmbicycle = yes}
+jbmbicycle = unknown & highway = footway																							{set jbmbicycle = no}							#Footways are often not correctly tagged or you can use them dismounted. 
+jbmbicycle = unknown & highway = path																									{set jbmbicycle = yes}							#!! Yes by the legal access, be aware these are mostly hiking paths
+jbmbicycle = unknown & highway ~ '(bus_guideway|busway|steps|track|platform)'								{set jbmbicycle = no}							#Track can be anything, so no default access for bicycle routing
+
+#From primary, secondary to living_street there is nothing special
+jbmbicycle = unknown & highway = *																										{set jbmbicycle = yes}																									
+jbmbicycle = unknown & route = ferry 																										{set jbmbicycle = no}
+jbmbicycle = unknown & man_made = pier																								{set jbmbicycle = no}
+jbmbicycle = unknown & barrier ~ '(full-height_turnstile)'																		{set jbmbicycle = no}
+jbmbicycle = unknown & barrier = *																											{set jbmbicycle = yes}																									
+
+#=======================================================================================
+#3) Car	(vehicle, motor_vehicle, motorcar)
+#=======================================================================================
+()	{delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmcar)' | '$(access)' | 'unknown' ; set jbmtransporttype = car}
+include 'access_translations';
+()	{set jbmcar =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmcar = destination		{set jbmcar = yes ; set mkgmap:throughroute = no}
+jbmcar = permit				{set jbmcar = no}
+jbmcar = agricultural		{set jbmcar = no}
+jbmcar = seasonal			{set jbmcar = yes}
+jbmcar = conditional		{set jbmcar = no}
+jbmcar = betternot_yes	{set jbmcar = yes}
+jbmcar = betternot_no	{set jbmcar = no}
+
+#Other
+#If still not yes or no, derive from the highway or finally go for the default
+jbmcar = unknown	& barrier = '(cattle_grid|toll_booth)'																												{set jbmcar = yes}
+jbmcar = unknown	& barrier = *																																					{set jbmcar = no}
+jbmcar = unknown	& (highway = track & tracktype = grade1)																									{set jbmcar = yes}
+jbmcar = unknown	& highway ~ '(path|steps|footway|cycleway|bridleway|pedestrian|track|bus_guideway|busway|platform)'	{set jbmcar = no}
+jbmcar = unknown	& highway = *																																				{set jbmcar = yes}
+jbmcar = unknown	& man_made = pier																																		{set jbmcar = no}
+jbmcar = unknown	& route = ferry																																				{set jbmcar = no}		#There are a lot of foot/bicycle only ferries !
+jbmcar = unknown	& man_made = pier																																		{set jbmcar = no}
+
+#Last trap, if not yet yes/no log a warning and set finally
+barrier = * 				& !(jbmcar ~ '(yes|no)')		{add dbgaccess = '(jbmcar=$(jbmcar))' ; set jbmcar = no}
+highway = * 			& !(jbmcar ~ '(yes|no)')		{add dbgaccess = '(jbmcar=$(jbmcar))' ; set jbmcar = yes}
+route = ferry 			& !(jbmcar ~ '(yes|no)')		{add dbgaccess = '(jbmcar=$(jbmcar))' ; set jbmcar = no}
+man_made = pier 	& !(jbmcar ~ '(yes|no)')		{add dbgaccess = '(jbmcar=$(jbmcar))' ; set jbmcar = no}
+
+
+#=======================================================================================
+#4) Taxi
+#=======================================================================================
+()	{delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmtaxi)' | '$(access)' | 'unknown' ; set jbmtransporttype = taxi}
+include 'access_translations';
+()	{set jbmtaxi =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmtaxi = destination		{set jbmtaxi = yes}
+jbmtaxi = permit				{set jbmtaxi = yes}
+jbmtaxi = agricultural		{set jbmtaxi = no}
+jbmtaxi = seasonal			{set jbmtaxi = yes}
+jbmtaxi = conditional		{set jbmtaxi = no}
+jbmtaxi = betternot_yes	{set jbmtaxi = yes}
+jbmtaxi = betternot_no	{set jbmtaxi = no}
+
+#Other
+jbmtaxi ~ '(lane|lanes|opposite|opposite_lane)'							{set jbmtaxi = yes}
+
+#If still not yes or no, derive from the highway or finally go for the default
+jbmtaxi = unknown	& barrier = '(cattle_grid|toll_booth)'																	{set jbmtaxi = yes}
+jbmtaxi = unknown	& jbmcar = no 																									{set jbmtaxi = no}
+jbmtaxi = unknown	& (highway = track & tracktype = grade1)														{set jbmtaxi = yes}
+jbmtaxi = unknown	& barrier = *																										{set jbmtaxi = no}
+jbmtaxi = unknown	& highway ~ '(path|steps|footway|cycleway|pedestrian|track|platform)'			{set jbmtaxi = no}
+jbmtaxi = unknown	& highway = *																									{set jbmtaxi = yes}
+jbmtaxi = unknown	& route = ferry																									{set jbmtaxi = '$(jbmcar)'}
+jbmtaxi = unknown	& man_made = pier																							{set jbmtaxi = no}
+
+#Last trap, if not yet yes/no log a warning and set finally
+barrier = * 				& !(jbmtaxi ~ '(yes|no)')		{add dbgaccess = '(jbmtaxi=$(jbmtaxi))' ; set jbmtaxi = no}
+highway = * 			& !(jbmtaxi ~ '(yes|no)')		{add dbgaccess = '(jbmtaxi=$(jbmtaxi))' ; set jbmtaxi = yes}
+route = ferry 			& !(jbmtaxi ~ '(yes|no)')		{add dbgaccess = '(jbmtaxi=$(jbmtaxi))' ; set jbmtaxi = no}
+man_made = pier 	& !(jbmtaxi ~ '(yes|no)')		{add dbgaccess = '(jbmtaxi=$(jbmtaxi))' ; set jbmtaxi = no}
+
+#=======================================================================================
+#5) Truck, 	If no truck or hgv specific tags then retrieve from higher hiarchy 'vehicle=' or 'motor_vehicle=' or if that is also not specified fall back to the general access
+#=======================================================================================
+()	{delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmtruck)' | '$(access)' | 'unknown' ; set jbmtransporttype = truck}
+include 'access_translations';
+()	{set jbmtruck =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmtruck = destination		{set jbmtruck = yes}
+jbmtruck = permit				{set jbmtruck = yes}
+jbmtruck = agricultural		{set jbmtruck = no}
+jbmtruck = seasonal			{set jbmtruck = yes}
+jbmtruck = conditional		{set jbmtruck = no}
+jbmtruck = betternot_yes	{set jbmtruck = yes}
+jbmtruck = betternot_no		{set jbmtruck = no}
+
+#Other
+#If still not yes or no, derive from the highway or finally go for the default
+jbmtruck = unknown	& barrier = '(cattle_grid|toll_booth)'																				{set jbmtruck = yes}
+jbmtruck = unknown	& (highway = track & tracktype = grade1)																	{set jbmtruck = yes}
+jbmtruck = unknown	& barrier = *																													{set jbmtruck = no}
+jbmtruck = unknown	& highway ~ '(path|steps|footway|cycleway|pedestrian|track|bus_guideway|busway)'	{set jbmtruck = no}
+jbmtruck = unknown	& highway = *																												{set jbmtruck = yes}
+jbmtruck = unknown	& route = ferry																												{set jbmtruck = no}
+jbmtruck = unknown	& man_made = pier																										{set jbmtruck = no}
+
+#Last trap, if not yet yes/no log a warning and set finally
+barrier = * 				& !(jbmtruck ~ '(yes|no)')		{add dbgaccess = '(jbmtruck=$(jbmtruck))' ; set jbmtruck = no}
+highway = * 			& !(jbmtruck ~ '(yes|no)')		{add dbgaccess = '(jbmtruck=$(jbmtruck))' ; set jbmtruck = yes}
+route = ferry 			& !(jbmtruck ~ '(yes|no)')		{add dbgaccess = '(jbmtruck=$(jbmtruck))' ; set jbmtruck = no}
+man_made = pier 	& !(jbmtruck ~ '(yes|no)')		{add dbgaccess = '(jbmtruck=$(jbmtruck))' ; set jbmtruck = no}
+
+#=======================================================================================
+#6) Bus 	If no psv or bus specific tags retrieve from higher vehicle= or motor_vehicle= or if that is also not specified fall back to the general access
+#=======================================================================================
+()	{delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmbus)' | '$(access)' | 'unknown' ; set jbmtransporttype = bus}
+include 'access_translations';
+()	{set jbmbus =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmbus = destination		{set jbmbus = yes}
+jbmbus = permit				{set jbmbus = yes}
+jbmbus = agricultural		{set jbmbus = no}
+jbmbus = seasonal			{set jbmbus = yes}
+jbmbus = conditional		{set jbmbus = no}
+jbmbus = betternot_yes	{set jbmbus = yes}
+jbmbus = betternot_no	{set jbmbus = no}
+
+#Other
+highway ~ '(bus_guideway|busway)'											{set jbmbus = yes}
+jbmbus ~ '(lane|lanes|opposite|opposite_lane)'							{set jbmbus = yes}
+jbmbus = yes & man_made = pier & psv != * & bus != *			{set jbmbus = no}
+
+#If still not yes or no, derive from the highway or finally go for the default
+jbmbus = unknown	& jbmcar = no 																							{set jbmbus = no}
+jbmbus = unknown	& (highway = track & tracktype = grade1)												{set jbmbus = yes}
+jbmbus = unknown	& barrier = *																								{set jbmbus = no}
+jbmbus = unknown	& highway ~ '(path|steps|footway|cycleway|pedestrian|track)'					{set jbmbus = no}
+jbmbus = unknown	& highway = *																							{set jbmbus = yes}
+jbmbus = unknown	& route = ferry																							{set jbmbus = no}
+jbmbus = unknown	& man_made = pier																					{set jbmbus = no}
+
+#Last trap, if not yet yes/no log a warning and set finally
+barrier = * 				& !(jbmbus ~ '(yes|no)')		{add dbgaccess = '(jbmbus=$(jbmbus))' ; 	set jbmbus = no}
+highway = * 			& !(jbmbus ~ '(yes|no)')		{add dbgaccess = '(jbmbus=$(jbmbus))' ;	set jbmbus = yes}
+route = ferry 			& !(jbmbus ~ '(yes|no)')		{add dbgaccess = '(jbmbus=$(jbmbus))' ; 	set jbmbus = no}
+man_made = pier 	& !(jbmbus ~ '(yes|no)')		{add dbgaccess = '(jbmbus=$(jbmbus))' ;	set jbmbus = no}
+
+#=======================================================================================
+#7) Emergency
+#=======================================================================================
+()	{delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmemergency)' | '$(access)' | 'unknown' ; set jbmtransporttype = emergency}
+include 'access_translations';
+()	{set jbmemergency =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmemergency = destination		{set jbmemergency = yes}
+jbmemergency = permit				{set jbmemergency = yes}
+jbmemergency = agricultural		{set jbmemergency = yes}
+jbmemergency = seasonal			{set jbmemergency = yes}
+jbmemergency = conditional		{set jbmemergency = yes}
+jbmemergency = betternot_yes	{set jbmemergency = yes}
+jbmemergency = betternot_no	{set jbmemergency = yes}
+
+#Other
+jbmemergency = unknown & (jbmcar = yes | jbmtaxi = yes | jbmtruck = yes | jbmbus = yes | jbmdelivery = yes) 				{set jbmemergency = yes}
+jbmemergency = access_point																																					{set jbmemergency = yes}
+
+#If still not yes or no, derive from the highway or finally go for the default
+jbmemergency = unknown	& (highway = track & tracktype = grade1)										{set jbmemergency = yes}
+jbmemergency = unknown	& barrier = *																						{set jbmemergency = no}
+jbmemergency = unknown	& highway ~ '(path|steps|track)'															{set jbmemergency = no}
+jbmemergency = unknown	& highway = *																					{set jbmemergency = yes}
+jbmemergency = unknown	& route = ferry																					{set jbmemergency = '$(jbmcar)'}
+jbmemergency = unknown	& man_made = pier																			{set jbmemergency = no}
+
+#Last trap, if not yet yes/no log a warning and set finally
+barrier = * 				& !(jbmemergency ~ '(yes|no)')		{add dbgaccess = '(jbmemergency=$(jbmemergency))' ; set jbmemergency = no}
+highway = * 			& !(jbmemergency ~ '(yes|no)')		{add dbgaccess = '(jbmemergency=$(jbmemergency))' ; set jbmemergency = yes}
+route = ferry 			& !(jbmemergency ~ '(yes|no)')		{add dbgaccess = '(jbmemergency=$(jbmemergency))' ; set jbmemergency = no}
+man_made = pier 	& !(jbmemergency ~ '(yes|no)')		{add dbgaccess = '(jbmemergency=$(jbmemergency))' ; set jbmemergency = no}
+
+#=======================================================================================
+#8) Delivery
+#=======================================================================================
+()	{delete jbmaccesscategory ; set jbmtransporttypevalue = '$(jbmdelivery)' | '$(access)' | 'unknown' ; set jbmtransporttype = delivery}
+include 'access_translations';
+()	{set jbmdelivery =  '$(jbmaccesscategory)' | '$(jbmtransporttypevalue)'}
+
+#Handled by access_translations
+jbmdelivery = destination		{set jbmdelivery = yes}
+jbmdelivery = permit				{set jbmdelivery = yes}
+jbmdelivery = agricultural		{set jbmdelivery = no}
+jbmdelivery = seasonal			{set jbmdelivery = yes}
+jbmdelivery = conditional		{set jbmdelivery = no}
+jbmdelivery = betternot_yes	{set jbmdelivery = yes}
+jbmdelivery = betternot_no	{set jbmdelivery = no}
+
+#Other
+
+#If still not yes or no, derive from the highway or finally go for the default
+jbmdelivery = unknown	& jbmcar = no 																					{set jbmdelivery = no}
+jbmdelivery = unknown	& (highway = track & tracktype = grade1)										{set jbmdelivery = yes}
+jbmdelivery = unknown	& barrier = *																						{set jbmdelivery = no}
+jbmdelivery = unknown	& highway ~ '(path|steps|footway|cycleway|pedestrian|track)'			{set jbmdelivery = no}
+jbmdelivery = unknown	& highway = *																					{set jbmdelivery = yes}
+
+jbmdelivery = unknown	& route = ferry																					{set jbmdelivery = '$(jbmcar)'}
+jbmdelivery = unknown	& man_made = pier																			{set jbmdelivery = no}
+
+#Last trap, if not yet yes/no log a warning and set finally
+barrier = * 				& !(jbmdelivery ~ '(yes|no)')			{add dbgaccess = '(jbmdelivery=$(jbmdelivery))' ; set jbmdelivery = no}
+highway = * 			& !(jbmdelivery ~ '(yes|no)')			{add dbgaccess = '(jbmdelivery=$(jbmdelivery))' ; set jbmdelivery = yes}
+route = ferry 			& !(jbmdelivery ~ '(yes|no)')			{add dbgaccess = '(jbmdelivery=$(jbmdelivery))' ; set jbmdelivery = no}
+man_made = pier 	& !(jbmdelivery ~ '(yes|no)')			{add dbgaccess = '(jbmdelivery=$(jbmdelivery))' ; set jbmdelivery = no}
+
+#=======================================================================================
+#Assign the final values to the mkgmap internal values
+#===================================================================================
+jbmfoot = yes | jbmfoot = no 								{set mkgmap:foot 					= '$(jbmfoot)'}
+jbmbicycle = yes | jbmbicycle = no 						{set mkgmap:bicycle 				= '$(jbmbicycle)'}
+jbmcar = yes | jbmcar = no 									{set mkgmap:car 					= '${jbmcar}'}
+jbmtaxi = yes | jbmtaxi = no 									{set mkgmap:taxi 					= '${jbmtaxi}'}
+jbmtruck = yes | jbmtruck = no 								{set mkgmap:truck 					= '$(jbmtruck)'}
+jbmbus = yes | jbmbus = no 									{set mkgmap:bus 					= '$(jbmbus)'}
+jbmemergency = yes | jbmemergency = no 			{set mkgmap:emergency 		= '$(jbmemergency)'}
+jbmdelivery = yes | jbmdelivery = no 					{set mkgmap:delivery 			= '$(jbmdelivery)'}
+
+mkgmap:foot = no & mkgmap:bicycle=no & mkgmap:car=no & mkgmap:taxi=no & mkgmap:truck=no & mkgmap:bus=no & mkgmap:emergency=no & mkgmap:delivery=no {set jbmunaccessible = true}
+
+
+#Set other access parameters collected
+#=======================================================================================
+highway = * & oneway = yes & jbmcar = no & jbmbicycle = no		 				{add mkgmap:dead-end-check = false}
+
+#=======================================================================================
+#Since we don't overwrite the original osm tags anymore we can do nice unittests and double checking
+#Even when excluded with an if-statment these lines are processed so better enable/disable them if needed
+#===================================================================================
+##Debug
+if (mkgmap:option:jbmoptiondebug ~ '(info|verbose)') then
+	dbgaccess ~ '\((jbmfoot|jbmbicycle|jbmcar).*' 											{add dbgmsginfo = 'Access [$(dbgaccess)] translated to yes or no' ; add dbgcategory = 'debug - unhandled access'}
+	dbgaccess ~ '\((jbmtaxi|jbmtruck|jbmbus|jbmemergency|jbmdelivery).*' 	{add dbgmsgverbose = 'Access [$(dbgaccess)] translated to yes or no' ; add dbgcategory = 'debug - unhandled access'}
+#	include 'access_unittests';
+end
+()		{delete dbgaccess ; delete jbmtransporttype ; delete jbmtransporttypevalue ; delete jbmaccesscategory}

@@ -1,0 +1,871 @@
+﻿#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#Points are processed before lines
+#=======================================================================================
+#Possible style-options for mkgmap build argument:  --style-option=
+#			jbmoptionpersonal=true				Adds via ferrata and ruins
+#          jbmoptionbicycle=true					Adds additional collored overlays for bicycle routes and node network points
+#          jbmoptionhiking=true					Adds additional collored overlays for hiking routes and node network points
+#			jbmoptionfixme=true					Adds symbols for osm fixme requests
+#			jbmoptiondebug=true					Includes extra debugging echo's to log
+#=======================================================================================
+#Temporary debug en testing
+#=======================================================================================
+mkgmap:option:jbmoptiondebug = * {set dbglevel = '$(mkgmap:option:jbmoptiondebug)'}
+dbgtrace = true {echotags 'debug - points - body start'}
+#=======================================================================================
+
+#Temporary debug en testing
+#=======================================================================================
+#amenity = ferry_terminal & osmid() =  1784696793 {set dbglevel = custom}
+#amenity = ferry_terminal & osmid() =  48463107 {set dbglevel = custom}
+#shop = * & osmid() =  303706242  {set dbglevel = custom ; set dbgtrace = false}
+#name = 'Rifugio Torre di Pisa' {set dbglevel = custom}
+
+#=======================================================================================
+#This sections must be in both lines and polygons in order to work properly
+mkgmap:cache_area_size >= 0					{set jbmareasize = 24 ; set jbmfontsize = small}
+mkgmap:cache_area_size >= 2500				{set jbmareasize = 22}
+mkgmap:cache_area_size >= 25000			{set jbmareasize = 20}
+mkgmap:cache_area_size >= 125000			{set jbmareasize = 18 ; set jbmfontsize = normal}
+mkgmap:cache_area_size >= 2000000		{set jbmareasize = 16 ; set jbmfontsize = large}
+mkgmap:cache_area_size >= 25000000		{set jbmareasize = 14}
+
+mkgmap:cache_area_size >= 0					{set jbmareasizepoi = 24}
+mkgmap:cache_area_size >= 125000			{set jbmareasizepoi = 22}
+mkgmap:cache_area_size >= 250000			{set jbmareasizepoi = 20}
+mkgmap:cache_area_size >= 2500000		{set jbmareasizepoi = 18}
+mkgmap:cache_area_size >= 5000000		{set jbmareasizepoi = 17}
+mkgmap:cache_area_size >= 10000000		{set jbmareasizepoi = 16}
+mkgmap:cache_area_size >= 50000000		{set jbmareasizepoi = 15}
+mkgmap:cache_area_size >= 100000000	{set jbmareasizepoi = 14}
+
+#Calculate adress info for poi lables
+include 'inc/address';
+
+#Fixme requests
+#=======================================================================================
+(mkgmap:option:jbmoptionfixme = true & fixme = * & !(mkgmap:line2poi = true | mkgmap:area2poi = true))			{name '${fixme}'} [0x641d resolution 22]	#Point
+(mkgmap:option:jbmoptionfixme = true & fixme = * & mkgmap:line2poitype = mid) 													{name '${fixme}'} [0x641e resolution 22]	#Line
+(mkgmap:option:jbmoptionfixme = true & fixme = * & mkgmap:area2poi = true) 														{name '${fixme}'} [0x641f resolution 22]		#Area
+
+#Map improvement find barriers on cycle & hiking routes without correct access (it's a test on the line-to-poi node before removed)
+#It's not possible to reset the barriers access rules if generated from a line, so logging is the best we can do.
+#UNIT TESTING 20210214 Works perfectly but can cause a lot of hits to be fixed
+if (mkgmap:from-node:barrier ~ '(gate|lift_gate|swing_gate)') & highway = * then
+#	jbm_route_hiking = * & !(mkgmap:from-node:foot ~ '(yes|designated|official|permissive|dismount|destination)' | mkgmap:from-node:access ~ '(yes|designated|official|permissive|dismount|destination)')
+#	{set dbgmsgverbose = 'Unaccessable barrier on hiking route'  ; set dbgcategory = 'debug - unittest barrier access'  set mkgmap:execute_finalize_rules = true}#
+
+	jbm_route_bicycle = * & !(mkgmap:from-node:bicycle ~ '(yes|designated|official|permissive|dismount|destination)' | mkgmap:from-node:access  ~ '(yes|designated|official|permissive|dismount|destination)')
+	{set dbgmsgverbose = 'Unaccessable barrier on bicycle route'  ; set dbgcategory = 'debug - unittest barrier access' ; set mkgmap:execute_finalize_rules = true}
+end
+#UNIT TESTING
+
+#Don't render not relevant mkgmap:line2poi tags
+#=======================================================================================
+#mkgmap:line2poitype ~ '(start|inner|end|mid)'	 {deletealltags} #only start,end and mid of line used in style so far
+if (mkgmap:line2poi = true) then
+	amenity = * 												{delete amenity}
+	barrier = * 													{delete barrier}
+	historic = *													{delete historic}
+	landuse = *													{delete landuse}
+	leisure = * & leisure != slipway					{delete leisure}
+	man_made = *												{delete man_made}
+	natural = * 	& !(natural ~ '(cape|strait)')	{delete natural}
+	rcn_ref = * 													 {delete rcn_ref}
+	place = * 														 {delete place}
+	shop = * 														 {delete shop}
+	tourism = * 													 {delete tourism}
+	sport = * 														 {delete sport}
+end
+
+#Don't render not relevant mkgmap:area2poi tags
+#=======================================================================================
+barrier = *			& mkgmap:area2poi = true {delete barrier}
+
+#Others
+#=======================================================================================
+building = no {delete building}												#So we can test freely against building = *
+natural = tree 	[0x2b03 resolution 24 continue]				#Since a tree can be overlapped with other poi render them first and continue (At least true for place of worship, bin and artwork)
+#natural = tree 	[0x11501 resolution 24 continue]				#Since a tree can be overlapped with other poi render them first and continue (At least true for place of worship, bin and artwork)
+
+#Barriers (access resctrictions are moved to the finalize section)
+#=======================================================================================
+barrier = gate & tourism != attraction	{set jbmroutable = true ; set mkgmap:road-speed = 0} 	 	[0x2a15 resolution 24]	#Tourism = attraction before gate
+barrier ~ '(bollard|block|log|turnstile)' 	{set jbmroutable = true ; set mkgmap:road-speed = 1}		[0x2a14 resolution 24]	#Block before tourism = attraction
+barrier ~ '(lift_gate|swing_gate)' 			{set jbmroutable = true ; set mkgmap:road-speed = 0} 		[0x6905 resolution 24]
+barrier = cycle_barrier 							{set jbmroutable = true ; set mkgmap:road-speed = 1}		[0x6901 resolution 24]
+barrier = bus_trap 									{set jbmroutable = true ; set mkgmap:road-speed = 1}		[0x690b resolution 24]
+barrier = kissing_gate 							{set jbmroutable = true ; set mkgmap:road-speed = 0}		[0x6902 resolution 24]
+barrier = stile 											{set jbmroutable = true ; set mkgmap:road-speed = 0}		[0x6909 resolution 24]
+barrier = toll_booth 								{set jbmroutable = true }														[0x690a resolution 24]
+barrier = cattle_grid	 																															[0x6908 resolution 24]
+barrier = full-height_turnstile					{set jbmroutable = true } 														[0x6903 resolution 24]
+#barrier = border_control		 	[0x3006 resolution 20]
+#barrier = entrance
+#barrier = bump_gate
+
+#Public transport en platforms naming tags
+#=======================================================================================
+(public_transport = platform | highway = bus_stop | railway ~ '(tram_stop|halt|station)') & (ref =* | route_ref = *)										{set ref = '${ref|def:}(${route_ref})'}
+(public_transport = platform | highway = bus_stop | railway ~ '(tram_stop|halt|station)') & lit = yes & (shelter = yes | covered = yes)		{set ref = '${ref|def:}*'}
+(public_transport = platform | highway = bus_stop | railway ~ '(tram_stop|halt|station)') & lit != yes & (shelter = yes | covered = yes) 		{set ref = '${ref|def:}+'}
+(public_transport = platform | highway = bus_stop | railway ~ '(tram_stop|halt|station)') & (shelter = no | covered = no) 							{set ref = '${ref|def:}-'}
+
+#Bicycle routes
+#=======================================================================================
+#Version 20200526 > copy to separate style if altered
+if (mkgmap:option:jbmoptionbicycle = true) then
+	jbm_route_name_lcn		= * & mkgmap:line2poitype = mid {name '${jbm_route_name_lcn}/${jbm_route_ref_lcn}'		| '${jbm_route_ref_lcn}'	| '${jbm_route_name_lcn}' } 	[0x3b10 resolution 20-22 continue]
+	jbm_route_name_rcn		= * & mkgmap:line2poitype = mid {name '${jbm_route_name_rcn}/${jbm_route_ref_rcn}'		| '${jbm_route_ref_rcn}'	| '${jbm_route_name_rcn}' } 	[0x3b11 resolution 20-22 continue]
+	jbm_route_name_ncn		= * & mkgmap:line2poitype = mid {name '${jbm_route_name_ncn}/${jbm_route_ref_ncn}'	| '${jbm_route_ref_ncn}'	| '${jbm_route_name_ncn}'} 	[0x3b12 resolution 16-22 continue]
+	jbm_route_name_icn		= * & mkgmap:line2poitype = mid {name '${jbm_route_name_icn}/${jbm_route_ref_icn}'		| '${jbm_route_ref_icn}'	| '${jbm_route_name_icn}' } 	[0x3b13 resolution 15-22 continue]
+	rcn_ref = *  {name '${rcn_ref}' } [0x3b0d resolution 22 continue]
+end
+
+#Naming
+if (mkgmap:option:jbmoptionpersonal = true & (mkgmap:admin_level6 = 'Bolzano - Bozen' | mkgmap:admin_level4 = 'DISABLED Trentino-Alto Adige/Südtirol')) then
+	#Changing names of Sud Tirol to both German and Italian if both are supplied
+	name:de = * & name:it = * {set name = '$(name:de) - $(name:it)'}
+end
+
+#Highway
+#=======================================================================================
+highway = traffic_signals 																																	[0x2a16 resolution 24]
+highway = mini_roundabout 																																[0x6413 resolution 24]
+highway ~ '(services|rest_area)' & mkgmap:area2poi = true & name = * 														[0x3b03 resolution 22]
+#In openstreetmap carto no poi is used for junctions but because the lable placement of Garmin is less precise use a little red dot
+highway = motorway_junction & (name = * | ref = * ) {name '${ref} ${name}' | '${ref}' | '${name}'} 				[0x2802 resolution 20-24]
+mkgmap:from-node:highway = turning_circle & highway = track 																	[0x641a resolution 24]
+mkgmap:from-node:highway = turning_circle & highway = living_street 														[0x641c resolution 24]
+mkgmap:from-node:highway = turning_circle & highway ~ '(tertiary|unclassified|residential|service)'			[0x641b resolution 24]	#Not if aeroway = taxiway https://www.openstreetmap.org/way/39484936
+
+#Aero
+#=======================================================================================
+#aeroway = airport 												[0x2f04 resolution 18]
+aeroway = aerodrome & (closed = yes | access = private | !(icao = * | iata = *))						[0x2f04 resolution 22]		#Rare situations
+aeroway = aerodrome & mkgmap:area2poi = true & iata = *														[0x2f04 resolution 17]		#Major airports
+aeroway = aerodrome & mkgmap:area2poi = true																		[0x2f04 resolution 18]		#Allto be derived from polygon
+aeroway = aerodrome 									 	 																			[0x2f04 resolution 20]		#All others
+aeroway = helipad 																															[0x5904 resolution 24]
+aeroway = apron & name = * 																										[0x6100 resolution 24]
+aeroway = gate & ref = *																												[0x5905 resolution 24]		#https://www.openstreetmap.org/#map=16/63.9952/-22.624		Without ref, don't show lable?
+																																																	#https://www.openstreetmap.org/#map=19/51.18849/4.45364	With ref show lable?
+#Boundaries for national_park
+#=======================================================================================
+boundary	= 	national_park 														& building != *	{set jbmreserve  = true}
+boundary	= 	protected_area & protect_class ~ '([1-6]|1[a|b])'	& building != *	{set jbmreserve  = true}
+leisure			=		nature_reserve 														& building != *	{set jbmreserve  = true}
+
+if (jbmreserve  = true & name = * & mkgmap:area2poi = true) then
+	if (jbmreserve  = true & !(seamark:type = *) & is_in(natural, sea, in) = false) then
+			jbmareasizepoi <= 14					[0x1f01 resolution 14-14 continue]	#Small
+			jbmareasizepoi <= 15					[0x1f01 resolution 15-15 continue]	#Small
+			jbmareasizepoi <= 16					[0x2801 resolution 16-16 continue] 	#Normal
+			jbmareasizepoi <= 17					[0x2801 resolution 17-17 continue] 	#Normal	
+			jbmareasizepoi <= 18					[0x2804 resolution 18-18 continue] 	#Normal
+	end
+			jbmareasizepoi <= 20					[0x6612 resolution 20]							#Small
+			jbmareasizepoi <= 22					[0x6612 resolution 22]
+end
+jbmreserve  = true & name = *				[0x6612 resolution 24]
+ 
+#Leisure before tourism
+#=======================================================================================
+leisure = playground & area = * & area != yes {deletealltags}										#https://www.openstreetmap.org/#map=19/48.18092/11.24257
+leisure = golf_course & jbmareasizepoi <= 22					 											[0x6500 resolution 22]
+leisure = golf_course 																										[0x6500 resolution 24]
+leisure = miniature_golf 																									[0x2d05 resolution 24]
+golf = pin  {name '${name}' | '${ref}'}		 																		[0x2c1b resolution 24]
+leisure ~ '(fitness_centre|fitness_station)'				 														[0x2d0b resolution 24]
+leisure = playground & amenity != fountain																	[0x2c06 resolution 24]
+leisure = bowling_alley																									[0x2d07 resolution 24]
+leisure = sauna 																												[0x2d08 resolution 24]
+leisure = beach_resort 																									[0x6502 resolution 24]
+leisure = swimming_pool & building != * & name = * 													[0x650d resolution 24]
+leisure = amusement_arcade																							[0x2d0f resolution 24]
+leisure = bird_hide & amenity != shelter																		[0x2c07 resolution 24]
+leisure = outdoor_seating																								[0x2d0d resolution 24]
+leisure = marina & man_made != pier & name = * & tourism != * 								[0x3b07 resolution 24]
+leisure = slipway & mkgmap:area2poi != true & mkgmap:line2poitype = mid 			[0x2b00 resolution 24]
+leisure = slipway & mkgmap:area2poi != true & mkgmap:line2poi != true 				[0x2b00 resolution 24]
+leisure = picnic_table 																										[0x5a04 resolution 24]
+leisure = firepit 																												[0x2a0f resolution 24]
+leisure = dog_park													 														[0x2d0a resolution 24]
+leisure ~ '(track|pitch|ice_rink)' & name = * & building != * 										[0x3b0c resolution 24]
+leisure = fishing																												[0x2c05 resolution 24]
+leisure ~ '(water_park|swimming_area)' 																											[0x2d09 resolution 22]
+leisure = sports_centre					 	& sport = swimming								 											[0x2d09 resolution 22]
+leisure = sports_centre & name = * & building != * & man_made != tower & jbmareasizepoi<= 22 		[0x6514 resolution 22]
+leisure = sports_centre & name = * & building != * & man_made != tower								 				[0x6515 resolution 24]
+
+tourism ~ '(theme_park|aquarium|zoo)' 		{set jbmtourismzoo = true}
+if (name = * & !(tourism = chalet | highway = *) & !(jbmtourismzoo = true) & !(building = *) & (leisure ~ '(park|garden|stadium|recreation_ground)' | landuse = recreation_ground)) then
+	() mkgmap:area2poi = true & jbmareasizepoi <= 20		[0x650c resolution 20]
+	() mkgmap:area2poi = true & jbmareasizepoi <= 22 		[0x650c resolution 22]
+	()   																						[0x650c resolution 24]
+end
+
+#Amenity before shops and buildings and before tourism
+#=======================================================================================
+amenity = atm 																												[0x2f19 resolution 24]
+amenity = bank																												[0x2f06 resolution 24]
+amenity = bureau_de_change																							[0x2a17 resolution 24]
+amenity = casino																												[0x2d04 resolution 24]
+amenity = bench																												[0x2a09 resolution 24]
+amenity = drinking_water 																								[0x5000 resolution 24]
+amenity = waste_basket 																									[0x2a0b resolution 24]
+amenity = waste_disposal & (access != private | access = permissive)  						[0x2a0c resolution 24]
+amenity = recycling {name '${name} (${operator})' | '${name}' | '${operator}'} 				[0x2a0e resolution 24]
+amenity = toilets 																											[0x2a0d resolution 24]
+amenity = bbq																												[0x2a10 resolution 24]
+amenity = shower																											[0x2b05 resolution 24]
+amenity = cinema 																											[0x2d03 resolution 24]
+amenity = community_centre  																						[0x3005 resolution 24]
+amenity = library 																											[0x2c03 resolution 24]
+amenity = internet_cafe																									[0x2f16 resolution 24]
+amenity = public_bookcase																							[0x2a0a resolution 24]
+amenity = vending_machine & vending = excrement_bags											[0x2f1d resolution 24]
+amenity = vending_machine & vending = parking_tickets											[0x2f1d resolution 24]
+amenity = vending_machine & vending = public_transport_tickets								[0x2f1d resolution 24]
+amenity = parcel_locker																									[0x2c1c resolution 24]
+
+
+#Amenity - Transport
+amenity = charging_station  																							[0x2a13 resolution 24]
+amenity = fuel {name '${name}' | '${operator}' | '${brand}'}					 						[0x680a resolution 22-22 continue with_actions]	#Stupid garmin behavior where 0x2f01 can not be visible at 22, so introduce extra poi
+amenity = fuel {name '${name}' | '${operator}' | '${brand}'}					 						[0x2f01 resolution 24]
+amenity = car_wash 																										[0x2f0e resolution 24]
+amenity = car_rental | shop = car_rental																		[0x2f02 resolution 24]
+amenity = vehicle_inspection																							[0x5a07 resolution 24]
+amenity = * & (access = * & !(access = yes | access  = permissive)) 							{set jbmlimited = true}
+amenity = bicycle_parking & jbmlimited = true 															[0x2b0d resolution 24]
+amenity = bicycle_parking 																								[0x2f18 resolution 24]
+amenity = bicycle_rental 																								[0x3a01 resolution 24]
+amenity = bicycle_repair_station																						[0x3a02 resolution 24]
+amenity = parking & jbmlimited = true & location != underground							[0x2b0e resolution 24]
+amenity = parking 																											[0x2f0b resolution 24]
+amenity = parking_entrance & parking = underground & jbmlimited != true  			[0x2f1c resolution 24]
+amenity = motorcycle_parking  																						[0x3007 resolution 24]
+amenity = taxi 																												[0x2f0d resolution 24]
+amenity = boat_rental																										[0x2f0f resolution 24]
+
+#Amenity - Civil services
+amenity ~ '(police|fire_station|post_office|theatre|courthouse|prison)'							[0x6906 resolution 22-22 continue]
+amenity = police 																											[0x3001 resolution 24]
+amenity = fire_station 																									[0x3008 resolution 24]
+amenity = fountain & tourism != artwork																		[0x2d13 resolution 24]	#https://www.openstreetmap.org/#map=19/50.85357/4.34691
+amenity = prison 																											[0x5a06 resolution 22]
+amenity = post_box {name '${name}' | 'post_box (${ref})'} 											[0x2f11 resolution 24]
+amenity = post_office 																									[0x2f05 resolution 24]
+amenity = townhall												 															[0x680c resolution 22-22 continue]
+amenity = townhall												 															[0x3003 resolution 24]
+amenity = courthouse 																									[0x680d resolution 22-22 continue]
+amenity = courthouse 																									[0x3004 resolution 24]
+amenity = public_bath 																									[0x2f15 resolution 24]
+amenity = emergency_phone 																						[0x2f12 resolution 24]
+amenity = telephone 																										[0x2f12 resolution 24]
+amenity = theatre 																											[0x2d01 resolution 24]
+amenity = hunting_stand 																								[0x6706 resolution 22]
+amenity = arts_centre & office != *																				[0x2c04 resolution 24]		#Strange but true
+#amenity = border_control | barrier = border_control 													[0x3006 resolution 20]
+
+(amenity = shelter) & ele = * & name = * 	{set name = '$(name) ($(ele))'}				[0x2b06 resolution 20]	
+(amenity = shelter) & ele = * & name != * 	{set name = '$(ele)'}								[0x2b06 resolution 22]
+amenity = shelter																											[0x2b06 resolution 24]
+
+(amenity = university | amenity = college)			 {set jbmhighschool = true}
+(amenity = kindergarten | amenity = school)		 {set jbmlowschool = true}
+
+jbmhighschool = true & building != * & name = * & mkgmap:area2poi = true & mkgmap:cache_area_size > 2500 		[0x3c05 resolution 22-22 continue] 	#Small font
+jbmhighschool = true & building != * & name = * & mkgmap:area2poi = true 																[0x3c04 resolution 24]							#Normal font
+jbmlowschool = true & building != * & name = * 																												[0x3c05 resolution 24]							#Small font
+
+#Amenity - Healthcare / social services
+amenity = doctors | healthcare = doctor	 					[0x300a resolution 24]						#For healthcare it's doctor without 's'
+amenity = clinic | (healthcare = centre & office !=*)		[0x300a resolution 24]						#Exclusion for office only on healthcare  https://www.openstreetmap.org/#map=19/49.2502/4.55719
+amenity = dentist  | healthcare = dentist						[0x300b resolution 24]
+(amenity = hospital | healthcare = hospital)  & mkgmap:area2poi = true & mkgmap:cache_area_size > 2500		[0x5002 resolution 20-22 continue]
+(amenity = hospital | healthcare = hospital)	 				[0x5001 resolution 24]
+amenity = pharmacy 														[0x2e05 resolution 24]
+amenity = social_facility 													[0x2f14 resolution 24]
+amenity = nursing_home | amenity = childcare 			[0x5902 resolution 24]
+amenity = veterinary 														[0x300c resolution 24]
+
+#Specific healthcare is shown as dot and lable (but office is rendered first)
+healthcare ~ '(alternative|audiologist|birthing_center|blood_bank|blood_donation|clinic|dialysis|laboratory|midwife)' & office !=* & building !=* & name = * 											[0x5002 resolution 24]  #[0x4e04 resolution 24]
+healthcare ~ '(occupational_therapist|optometrist|pharmacy|physiotherapist|podiatrist|psychotherapist|rehabilitation|speech_therapist|yes)' & office !=* & building !=* &	name = * 	[0x5002 resolution 24]  #[0x4e04 resolution 24]
+
+#Amenity - Place of worship (Because of stupid poi behavior garmin everything double). I like the orignal assigments which are only visible at 24 whatever you configure here.
+#So i added extend version to be displayed at lower zoomlevels
+amenity = place_of_worship & (religion = muslim | building = mosque) 										[0x3a03 resolution 22-22 continue]
+amenity = place_of_worship & (religion = christian) & !(denomination ~ '(jehovahs_witness|la_luz_del_mundo|iglesia_ni_cristo|mormon)')			[0x3a04 resolution 22-22 continue]
+amenity = place_of_worship & (religion = buddhist) 																		[0x3a05 resolution 22-22 continue]
+amenity = place_of_worship & (religion = jewish) 																			[0x3a06 resolution 22-22 continue]
+amenity = place_of_worship & (religion = shinto) 																			[0x3a07 resolution 22-22 continue]
+amenity = place_of_worship & (religion = sikh) 																				[0x3a08 resolution 22-22 continue]
+amenity = place_of_worship & (religion = taoist) 																				[0x3a09 resolution 22-22 continue]
+amenity = place_of_worship & (religion = hindu) 																			[0x3a0a resolution 22-22 continue]
+
+amenity = place_of_worship & (religion = muslim | building = mosque) 										[0x2c0d resolution 24]
+amenity = place_of_worship & (religion = christian) & !(denomination ~ '(jehovahs_witness|la_luz_del_mundo|iglesia_ni_cristo|mormon)')			[0x2c0e resolution 24]
+amenity = place_of_worship & (religion = buddhist) 																		[0x2c0f resolution 24]
+amenity = place_of_worship & (religion = jewish) 																			[0x2c10 resolution 24]
+amenity = place_of_worship & (religion = shinto) 																			[0x2c11 resolution 24]
+amenity = place_of_worship & (religion = sikh) 																				[0x2c12 resolution 24]
+amenity = place_of_worship & (religion = taoist) 																				[0x2c13 resolution 24]
+amenity = place_of_worship & (religion = hindu) 																			[0x2c14 resolution 24]
+amenity = place_of_worship 																												[0x2c0b resolution 24]
+
+#Amenity - Restaurants and food
+amenity = restaurant & (cuisine = bagel | cuisine = 'cafe/diner') 													[0x2a02 resolution 24]
+amenity = restaurant & !(tourism ~ '(alpine_hut|hotel)')																	[0x2a00 resolution 24]		#Will be discussion forever, I follow openstreetmap which prefers hotel
+amenity = food_court 																														[0x2a00 resolution 24]
+amenity = fast_food 																															[0x2a01 resolution 24]
+amenity = cafe 																																	[0x2a02 resolution 24]
+amenity = biergarten 																															[0x2a03 resolution 24]
+amenity = bar												 																						[0x2a04 resolution 24]
+amenity = pub 																																	[0x2a05 resolution 24]
+amenity = nightclub 																															[0x2a06 resolution 24]
+amenity = ice_cream 																															[0x2a07 resolution 24]
+
+#Public transport en platforms
+#=======================================================================================
+#Train
+railway ~ '(level_crossing|crossing)' & mkgmap:line2poi = true & mkgmap:line2poitype = mid 															[0x2d0c resolution 24]
+railway ~ '(level_crossing|crossing)' & mkgmap:line2poi != true 																												[0x2d0c resolution 24]
+railway = station & subway = yes																																								[0x6503 resolution 22]
+railway = station & subway != *																																									[0x640e resolution 20-20 continue]
+railway = station & subway != *																																									[0x6501 resolution 22]
+(railway~'(halt|platform)' | (public_transport = platform & rail = * )) & (mkgmap:line2poi != true & mkgmap:area2poi != true) 		[0x6501 resolution 22]
+
+#Narrow gauge & Metro / Subway
+railway = tram_stop & (mkgmap:line2poi != true & mkgmap:area2poi != true) 			[0x6503 resolution 24]
+railway = subway_entrance  																								[0x2f0a resolution 24]
+highway = elevator & railway != subway_entrance															[0x2c08 resolution 24]
+
+#Ferry / Cablecar
+amenity = ferry_terminal 																									[0x680e resolution 22 continue]		#Without name
+amenity = ferry_terminal 																									[0x5903 resolution 24]						#With name
+aerialway = station & name = * & ele = * {set name = '$(name) ($(ele))'}
+aerialway = station																												[0x6504 resolution 22]
+
+#Bus stop after ferry_terminal : https://www.openstreetmap.org/#map=19/55.67913/12.59432
+amenity = bus_station 																										[0x5906 resolution 24]
+highway = bus_stop 																											[0x2f17 resolution 24]
+
+#Powerplants, lines and pylons
+#=======================================================================================
+power = generator & (generator:type = horizontal_axis | generator:source = wind | power_source = wind)		[0x6707 resolution 24]
+power = tower 																																						[0x6414 resolution 24]
+power = pole 																																							[0x6415 resolution 24]
+power = insulator																																					[0x6412 resolution 24]
+power ~ '(substation|generator|plant)' & building != * & name = * 												 					[0x4e01 resolution 22]
+
+#Man made before tourism
+#=======================================================================================
+man_made = works & building != *																				[0x3c03 resolution 24]
+man_made = lighthouse 																								[0x6704 resolution 20]
+man_made = water_tower 																								[0x6705 resolution 22]
+man_made = windmill 																									[0x6708 resolution 22]
+man_made = chimney 																									[0x6711 resolution 22]
+man_made = communications_tower 																			[0x6716 resolution 24]
+man_made ~ '(storage_tank|silo)'																					[0x2a19 resolution 24]
+
+man_made = tower & tower:construction = dish 															[0x670e resolution 22]	#Dish before tower:type = communication https://www.openstreetmap.org/#map=18/51.14966/4.18898
+man_made = telescope & telescope:type = optical														[0x6808 resolution 22]	#Dome
+man_made = telescope																									[0x670e resolution 22]	#Telescope:type = radio, infrared, gamma, radar
+
+man_made = tower & tower:type = defensive																[0x6411 resolution 24]
+man_made = tower & tower:type = observation															[0x6702 resolution 22]	#https://www.openstreetmap.org/#map=19/52.39734/4.76018
+man_made = tower & tower:type = communication & tower:construction = lattice	[0x6714 resolution 24]
+man_made = tower & tower:type = communication 													[0x6703 resolution 24]
+man_made = tower & tower:type = bell_tower																[0x6709 resolution 24]	#https://www.openstreetmap.org/#map=19/44.00256/8.1698 (First amenity then tower)
+man_made = tower & tower:type = lighting & tower:construction = lattice				[0x6715 resolution 24]
+man_made = tower & tower:type = lighting 																	[0x6717 resolution 24]
+man_made = tower & tower:type = cooling				 													[0x670f resolution 20]
+man_made = tower & tower:construction = lattice 														[0x670d resolution 24]
+man_made = tower & tower:construction = dome 														[0x6712 resolution 24]
+man_made = tower																											[0x670b resolution 24]
+
+man_made = mast & tower:type = communication 														[0x6713 resolution 24]
+man_made = mast & tower:type = lighting 																	[0x670c resolution 24]
+man_made = mast 																											[0x670a resolution 24]
+man_made = crane																											[0x6718 resolution 24]
+
+#Waterway
+#=======================================================================================
+#natural = water_fall
+waterway = waterfall & building != *	& mkgmap:line2poi != true & mkgmap:area2poi != true [0x6508 resolution 24]
+waterway = lock_gate 							& mkgmap:line2poi != true & mkgmap:area2poi != true [0x6506 resolution 24]
+waterway = weir & building != * 		& mkgmap:line2poi != true & mkgmap:area2poi != true [0x6505 resolution 24]
+waterway = dam & building != * 		& mkgmap:line2poi != true & mkgmap:area2poi != true [0x6507 resolution 24]
+
+#Tourism
+#=======================================================================================
+tourism ~ '(alpine_hut|wilderness_hut)' & ele = * & name = * 	{set name = '$(name) ($(ele))'}
+tourism ~ '(alpine_hut|wilderness_hut)' & ele = * & name != * 	{set name = '$(ele)'}
+tourism = alpine_hut 											[0x6416 resolution 20]
+tourism = wilderness_hut 									[0x6417 resolution 20]
+tourism = chalet {name '${name}' | '${ref}'}		[0x6418 resolution 24]
+tourism = camp_site 											[0x5a01 resolution 22]
+tourism = caravan_site 										[0x5a02 resolution 22]
+tourism = guest_house 										[0x2b02 resolution 24]
+tourism = hostel 													[0x2b08 resolution 24]
+tourism = apartment											[0x2b0a resolution 24]
+tourism = hotel													[0x2b01 resolution 24]
+tourism = motel													[0x2b09 resolution 24]
+tourism = picnic_site 											[0x4a00 resolution 24]
+tourism = lean_to 												[0x2b06 resolution 24]			#See also amenity = shelter
+tourism = artwork & artwork_type = bust 			[0x2d00 resolution 24]			#See also historic = memorial
+tourism = artwork & artwork_type = statue 		[0x2c19 resolution 24]
+tourism = artwork												[0x2c1a resolution 24]
+tourism = museum 												[0x680b resolution 22-22 continue]		#See also historic = musuem  	
+tourism = museum 												[0x2c02 resolution 24]
+
+#At least for tower:type = observation & tower & tower:type = defensive do not show viewpoint
+tourism = viewpoint & man_made != tower & is_in(man_made,tower, in) = false  {name '${name} - ${description}' | '${name}'} [0x2803 resolution 24]
+#tourism = wine_cellar | craft = winery 			[0x2c0a resolution 24]
+
+#http://www.mkgmap.org.uk/news/2014/11/24/converting-units
+#https://forum.openstreetmap.org/viewtopic.php?id=19841 	natural = peak converting ft / meters
+if (tourism = information & !(historic = archaeological_site)) then
+	information = guidepost & name = * & ele = * {set name = '$(name) ($(ele))'}
+	information = guidepost & !(name = *) {set name = '$(ele)'}
+	information = guidepost									[0x5a00 resolution 24]
+	information = audioguide 								[0x6519 resolution 24]
+	information = board 										[0x2a12 resolution 24]
+	information ~ '(map|tactile_map)' 					[0x2a11 resolution 24]
+	information = office 										[0x6518 resolution 24]
+	information = terminal 									[0x2f08 resolution 24]
+#()																		[0x2f0c resolution 24]
+end
+
+
+jbmfontsize = large {set jbmfontsize = normal}
+jbmtourismzoo = true & building != * & name = * & mkgmap:area2poi = true & jbmareasizepoi = 18													[0x3c00 resolution 18-18 continue with_actions]
+jbmtourismzoo = true & building != * & name = * & mkgmap:area2poi = true & jbmareasizepoi = 20  & jbmfontsize = small 	 		[0x3c00 resolution 20-20 continue with_actions]
+jbmtourismzoo = true & building != * & name = * & mkgmap:area2poi = true & jbmareasizepoi = 20  & jbmfontsize = normal 			[0x3c02 resolution 20-20 continue with_actions]
+jbmtourismzoo = true & building != * & name = * & mkgmap:area2poi = true & jbmareasizepoi = 22  & jbmfontsize = small 	 		[0x3c00 resolution 22-22 continue with_actions]
+jbmtourismzoo = true & building != * & name = * & mkgmap:area2poi = true & jbmareasizepoi = 22  & jbmfontsize = normal 			[0x3c02 resolution 22-22 continue with_actions]
+jbmtourismzoo = true & building != * & name = *   																																	[0x3c00 resolution 24]
+
+#Shops before landuse
+#=======================================================================================
+#Single dot on low zoomlevels for big shops
+amenity ~ '(marketplace)'	& building != *																							[0x6907 resolution 22-22 continue]
+shop ~ '(mall|department_store|doityourself|hardware|bed|garden_centre|garden_centre|car)'			[0x6907 resolution 22-22 continue]
+
+#Amenities in purple coloramenity
+amenity = marketplace & building != *			 										[0x300d resolution 22]
+amenity = driving_school																		[0x2e0c resolution 24]
+shop ~ '(vacant|no|none|closed|disused|empty|yes)'								{delete shop}
+
+shop ~ '(bakers|bakery)' 																			[0x2e02 resolution 24]
+shop = beauty																							[0x2b11 resolution 24]
+shop = bicycle																							[0x3b04 resolution 24]
+shop = butcher																						[0x2e0e resolution 24]
+shop = car 																								[0x2f07 resolution 24]
+shop = car_dealer 																					[0x2f07 resolution 24]
+shop = car_parts 																					[0x2b10 resolution 24]
+shop ~ '(t[i|y]res)'				 																	[0x2d16 resolution 24]
+shop = car_repair 																					[0x2f03 resolution 24]
+shop = chemist 																						[0x2e0d resolution 24]
+shop = department_store																		[0x2e01 resolution 24]
+shop ~ '(doityourself|hardware)'																[0x2e0f resolution 24]
+shop = furniture 																						[0x2e09 resolution 24]
+shop = garden_centre											 									[0x2e08 resolution 24]
+shop ~ '(general|convenience)'				 												[0x2e03 resolution 24]
+shop = hairdresser 																					[0x2f10 resolution 24]
+shop = mall & name = * 																		[0x4302 resolution 24]
+shop = supermarket 																				[0x3000 resolution 24]
+shop ~ '(alcohol|wine)'			 																[0x2e06 resolution 24]
+shop = beverages 																					[0x2d15 resolution 24]
+shop = deli 																								[0x2e0a resolution 24]
+shop ~ '(jewelry|jewellery)'			 															[0x2e12 resolution 24]
+shop = florist 																							[0x2e17 resolution 24]
+shop ~ '(electronics|radiotechnics|vacuum_cleaner)'							 	[0x2e0b resolution 24]
+shop = atv 																								[0x2f07 resolution 24]
+shop = tobacco  																						[0x300f resolution 24]
+shop ~ '(clothes|fashion)'			 															[0x2e07 resolution 24]
+shop = shoes 																							[0x2f1f resolution 24]
+shop ~ '(dry_cleaning|laundry)'			 													[0x2e10 resolution 24]
+shop = toys 																							[0x300e resolution 24]
+shop = books 																							[0x2b0f resolution 24]
+shop = stationery 																					[0x2d14 resolution 24]
+shop = gift 																								[0x2e15 resolution 24]
+shop = travel_agency 																				[0x2f1e resolution 24]
+shop = pet  																							[0x2e11 resolution 24]
+shop ~ '(greengrocer|farm)'			 														[0x2e19 resolution 24]
+shop ~ '(sports|ski)'			 																		[0x2e04 resolution 24]
+shop ~ '(kiosk|newsagent)'			 															[0x2e16 resolution 24]
+shop ~ '(photography|photo|photo_studio)'							 				[0x2e18 resolution 24]
+shop = optician 																						[0x2e14 resolution 24]
+shop ~ '(confectionery|pastry|chocolate)'							 					[0x2e13 resolution 24]
+shop = variety_store 																				[0x2b12 resolution 24]
+shop ~ '(seafood|fishmonger)'			 													[0x2b13 resolution 24]
+shop ~ '(perfumerie|perfumery|cosmetics)'							 				[0x2b14 resolution 24]
+shop = copyshop 																					[0x2b15 resolution 24]
+shop = art								 																[0x2b1c resolution 24]	#Purlple
+tourism = gallery 																					[0x2b16 resolution 24]	#Brown
+shop = mobile_phone 																			[0x2b17 resolution 24]
+shop = computer 																					[0x2b18 resolution 24]
+shop = hifi 																								[0x2b19 resolution 24]
+shop = bag 																								[0x2c00 resolution 24]
+shop = outdoor 																						[0x3010 resolution 24]
+shop = musical_instrument  																	[0x3011 resolution 24]
+shop = coffee 																							[0x3012 resolution 24]
+shop = tea 																								[0x3013 resolution 24]
+shop = music  																							[0x3014 resolution 24]
+shop = motorcycle 																					[0x3015 resolution 24]
+shop = dairy 																							[0x3016 resolution 24]
+shop = medical_supply 																			[0x3017 resolution 24]
+shop = bed 																								[0x3018 resolution 24]
+shop = video_games 																				[0x2c01 resolution 24]
+shop = video			 																				[0x3019 resolution 24]
+shop = houseware																					[0x2d18 resolution 24]
+shop = bookmaker																					[0x2b1a resolution 24]
+shop ~ '(wholesale|trade)'																		[0x2b1b resolution 24]
+shop = massage																						[0x2d0e resolution 24]
+shop = charity																							[0x2b1f resolution 24]
+shop = second_hand																				[0x2e00 resolution 24]
+shop = interior_decoration																		[0x2d1a resolution 24]
+shop = paint																							[0x2d1b resolution 24]
+shop = ticket																							[0x2d19 resolution 24]
+shop = fabric																							[0x2e1a resolution 24]
+shop = carpet																							[0x2e1b resolution 24]
+
+#Final symbol for shops
+shop = * & shop != mall 																		[0x2e0c resolution 24]			#Exclude mall because earlier we skipped the ones without names
+
+#Landuse lables
+#=======================================================================================
+if (mkgmap:area2poi = true & (natural ~ '(wood|scrub)' | landuse ~ '(wood|forest)') & name = * & !(building = *)) then
+	jbmareasizepoi <=12			[0x6618 resolution 13]
+	jbmareasizepoi <=14			[0x6618 resolution 14]
+	jbmareasizepoi <=15			[0x6618 resolution 15]
+	jbmareasizepoi <=16			[0x6618 resolution 16]
+	jbmareasizepoi <=17			[0x6618 resolution 17]
+	jbmareasizepoi <=18			[0x6618 resolution 18]
+	jbmareasizepoi <= 20			[0x6618 resolution 20]
+	jbmareasizepoi <= 22 		[0x6618 resolution 22]
+	()											[0x6618 resolution 24]
+end
+
+if (mkgmap:area2poi = true & (landuse ~ '(grass|meadow|orchard|village_green)' | natural = grassland)  & name = * & !(building = *) & !(power = plant)) then
+#	jbmareasizepoi <=12			[0x3b06 resolution 13]
+#	jbmareasizepoi <=14			[0x3b06 resolution 14]
+#	jbmareasizepoi <=15			[0x3b06 resolution 15]
+	jbmareasizepoi <=16			[0x3b06 resolution 16]
+	jbmareasizepoi <=17			[0x3b06 resolution 17]
+	jbmareasizepoi <=18			[0x3b06 resolution 18]
+	jbmareasizepoi <= 20			[0x3b06 resolution 20]
+	jbmareasizepoi <= 22 		[0x3b06 resolution 22]
+	()											[0x3b06 resolution 24]
+end
+
+#Industrial, retail, commercial
+landuse = retail 				& highway != * & building != *	& shop != *	& name = * & mkgmap:area2poi = true & jbmareasizepoi <= 22								[0x4300 resolution 22]
+landuse = retail 				& highway != * & building != *	& shop != *	& name = * & mkgmap:area2poi = true 																		[0x4300 resolution 24]	#Large font
+landuse = retail 				& highway != * & building != *	& shop != * 	& name = *												 																	[0x4303 resolution 24]	#Small font
+landuse = commercial 	& highway != * & building != *	& shop != * 	& name = * & mkgmap:area2poi = true &  jbmareasizepoi <= 22					 		[0x4301 resolution 22]
+landuse = commercial 	& highway != * & building != *	& shop != * 	& name = * & mkgmap:area2poi = true 																	[0x4301 resolution 24]
+landuse = commercial 	& highway != * & building != *	& shop != * 	& name = *												 																	[0x4301 resolution 24]
+landuse = industrial 		& amenity != *								& shop != *	& name = * & mkgmap:area2poi = true &  jbmareasizepoi <= 22					 		[0x4e00 resolution 22]
+landuse = industrial 		& amenity != *								& shop != *	& name = * & mkgmap:area2poi = true 																	[0x4e03 resolution 24]	#Small font
+landuse = industrial 		& amenity != *								& shop != *	& name = *												 																	[0x4e03 resolution 24]
+landuse = railway																							& name = * & mkgmap:area2poi = true &  jbmareasizepoi <= 22					 	[0x4e00 resolution 22]
+landuse = railway																							& name = * & mkgmap:area2poi = true 																[0x4e00 resolution 24]
+man_made = wastewater_plant				& building != *							& name = * & mkgmap:area2poi = true &  jbmareasizepoi <= 22					 		[0x4e00 resolution 22]
+man_made = wastewater_plant				& building != *							& name = * & mkgmap:area2poi = true 																	[0x4e03 resolution 24]	#Small font
+man_made = wastewater_plant				& building != *							& name = *												 																	[0x4e03 resolution 24]
+
+#Military
+landuse = military & building != * 		& name = * & mkgmap:area2poi = true & jbmareasizepoi <= 20				 					[0x640b resolution 20]	
+landuse = military & building != * 		& name = * & mkgmap:area2poi = true & jbmareasizepoi = 22 									[0x640b resolution 22]
+landuse = military & building != * 		& name = * 												 																		[0x640b resolution 24]
+military = danger_area 							& name = * & mkgmap:area2poi = true & jbmareasizepoi <= 20				 					[0x640b resolution 20]	
+military = danger_area 							& name = * & mkgmap:area2poi = true & jbmareasizepoi = 22 									[0x640b resolution 22]
+military = danger_area 							& name = *																															[0x640b resolution 24]
+
+#Cemetary
+(landuse ~ 'cemet[e|a]ry' | amenity = grave_yard) & cemetery != sea & name = * & mkgmap:area2poi = true & jbmareasizepoi = 20			[0x6403 resolution 20]
+(landuse ~ 'cemet[e|a]ry' | amenity = grave_yard) & cemetery != sea & name = * & mkgmap:area2poi = true & jbmareasizepoi = 22			[0x6403 resolution 22]
+(landuse ~ 'cemet[e|a]ry' | amenity = grave_yard) & cemetery != sea & name = * & mkgmap:area2poi = true 												[0x6403 resolution 24]
+
+landuse ~ '(construction|brownfield|landfill)'											& name = * & mkgmap:area2poi = true												[0x4e02 resolution 24]
+
+landuse = allotments 						& name = * & mkgmap:area2poi = true 		[0x3b0b resolution 22]
+landuse = quarry 							& name = * & mkgmap:area2poi = true 		[0x640c resolution 22]
+landuse = farmyard 						& name = * & mkgmap:area2poi = true 		[0x3b09 resolution 24]
+landuse = '(farm|farmland)'	 			& name = * & mkgmap:area2poi = true		 [0x3b0a resolution 24]
+
+#Natural
+#=======================================================================================
+#Edge 705 displays 0x650a,0x6511,0x6512,0x6513,0x6603,0x6614 as hollow white circles, no menu
+natural = volcano	{name '${name|def:}${ele|height:m=>ft|def:}'} 					[0x6615 resolution 20]
+natural = peak & name != * 																				[0x6616 resolution 24]	#Avoid cluttering of peaks with no importance
+natural = peak 													{name '${name|def:}${ele|height:m=>ft|def:}'} 					[0x6616 resolution 20]
+natural = saddle & mkgmap:area2poi != true	{name '${name|def:}${ele|height:m=>ft|def:}'} 					[0x6617 resolution 20]
+mountain_pass = yes & mkgmap:area2poi != true	{name '${name|def:}${ele|height:m=>ft|def:}'} 			[0x6619 resolution 20]
+natural = cave_entrance 																						[0x6601 resolution 22]
+natural = spring & name != * {delete ref}
+natural = spring & building != *																		[0x6511 resolution 22]
+natural ~ '(beach|shoal|sand)' & name = * & jbmareasizepoi = 20 					[0x6604 resolution 20]
+natural ~ '(beach|shoal|sand)' & name = * & jbmareasizepoi = 22 					[0x6604 resolution 22]
+natural ~ '(beach|shoal|sand)' & name = * 														[0x6604 resolution 24]
+
+
+#Water areas
+natural = sea & name = * 																					[0x6510 resolution 16]
+place ~ '(sea|ocean|bay)' & name = * & mkgmap:area2poi != true 					[0x6510 resolution 16]
+natural  = water & water = pond & name = * & mkgmap:area2poi = true 	[0x650d resolution 24]
+natural = reef & name = * 																					[0x280b resolution 20]
+natural = bay & name = *	& mkgmap:area2poi = true									[0x650d resolution 22]
+natural = bay & name = *  																					[0x280b resolution 20]	#0x2806 Check (larger font)
+
+if (natural ~ '(wetland|water)' & name = * & !(water = river)) then
+	mkgmap:area2poi = true & jbmareasizepoi <= 14										[0x280a resolution 14-14 continue]	#0x280a	Check
+	mkgmap:area2poi = true & jbmareasizepoi <= 15										[0x280a resolution 15-15 continue]	#0x280a	Check
+	mkgmap:area2poi = true & jbmareasizepoi <= 16										[0x280b resolution 16-16 continue]
+	mkgmap:area2poi = true & jbmareasizepoi <= 17										[0x280b resolution 17-17 continue]
+	mkgmap:area2poi = true & jbmareasizepoi <= 18										[0x2819 resolution 18-18 continue]	#0x2819 Check
+	mkgmap:area2poi = true & jbmareasizepoi <= 20										[0x650d resolution 20]
+	() 																														[0x650d resolution 22]
+end
+ 
+natural = heath & name = * 																				[0x3b08 resolution 22]
+natural ~ '(bare_rock|scree|shingle)' & name = * & jbmareasizepoi <= 22		[0x6614 resolution 22]
+natural ~ '(bare_rock|scree|shingle)' & name = * 											 	[0x6613 resolution 24]
+
+natural ~ '(cape|strait)' & ((mkgmap:line2poi = true & mkgmap:line2poitype = mid) | mkgmap:line2poi != true)			 	[0x1e02 resolution 20]
+ford ~ '(yes|stepping_stones)' & ((mkgmap:line2poi = true & mkgmap:line2poitype = mid) | mkgmap:line2poi != true) [0x6509 resolution 24]
+
+#DEBUG
+#(place = city | place = town) & population:2011 = * & mkgmap:area2poi != true {set dbglevel = custom ; set dbgcategory = "population 2011"}
+#place = city & population !=* & !(population:2011 = *) & mkgmap:area2poi != true {set dbglevel = custom ; set dbgcategory = "population city unknown"}
+#place = town & population !=* & !(population:2011 = *) & mkgmap:area2poi != true {set dbglevel = custom ; set dbgcategory = "population town unknown"}
+#place = city & name ~ '(Metz|Nancy)' {set dbgmsgcustom = MetzNancy}
+#place = city {set dbgmsgcustom = MetzNancy}
+#place ~ '(city|town)' & mkgmap:area2poi != true 											{set dbgmsgcustom = Town}
+#place ~ '(city|town)' & name ~ '(Nancy|Metz|Epinal|Verdun|Thionville|Lunn.ville|Sarrebourg|Pont...Mousson|Jarny|Bar-le-Duc)' {set dbglevel = custom}
+#END DEBUG
+
+#Geographical names and places
+#=======================================================================================
+place = * & name != * 										{delete place}
+place = village & capital = * 							{set place = town ; delete capital}
+place = * & capital = yes & admin_level = *	{set capital = '${admin_level}'}  	#Admin level overules, make sure capitals of states do not appear as country capitals
+
+#Population from city or if not specified try to retrieve it from the admin border
+place ~ '(city|town)' & mkgmap:area2poi != true 											{add jbmpopulation = '$(population)' | '$(jbm_population_adminlevel8)' | '$(jbm_population_adminlevel7)' |
+																																																	'$(jbm_population_adminlevel6)' | '$(jbm_population_adminlevel5)' |
+																																																	'$(jbm_population_adminlevel4)' | '$(jbm_population_adminlevel3)' |
+																																																	'$(jbm_population_adminlevel2)' | 0}
+																																	
+#Country capitals of small population
+place ~ '(city|town)' & mkgmap:area2poi != true & (jbmpopulation <= 100000)	& capital ~ '(2|yes)' 	[0x0400 resolution 16-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & (jbmpopulation <= 100000)	& capital ~ '(2|yes)' 	[0x0100 resolution 24-24 ]
+
+#Country capitals regardless of population
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(2|yes)'	 		[0x0400 resolution 13-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(2|yes)' 		[0x0100 resolution 24-24]
+
+#City's
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 500000								 	[0x0a00 resolution 13-13 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 500000								 	[0x0900 resolution 14-14 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 500000	 								[0x0600 resolution 15-16 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 500000	 								[0x0900 resolution 17-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 500000	 								[0x0a00 resolution 20-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 500000									[0x0100 resolution 24-24]
+
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 200000								 	[0x0a00 resolution 14-14 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 200000	 								[0x0700 resolution 15-15 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 200000	 								[0x0600 resolution 16-16 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 200000	 								[0x0900 resolution 17-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 200000	 								[0x0a00 resolution 20-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 200000									[0x0100 resolution 24-24]
+
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 100000								 	[0x0800 resolution 15-15 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 100000	 								[0x0a00 resolution 16-17 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 100000	 								[0x0900 resolution 18-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 100000									[0x0100 resolution 24-24]
+
+#Regional capitals if no jbmpopulation specified
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(4|5)' 			[0x0a00 resolution 16-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(4|5)' 			[0x0100 resolution 24-24]
+
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 50000								 	[0x0b00 resolution 16-16 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 50000	 								[0x0a00 resolution 17-17 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 50000	 								[0x0900 resolution 18-20 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 50000	 								[0x0a00 resolution 22-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 50000									[0x0100 resolution 24-24]
+
+#Regional capitals if no jbmpopulation specified
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(6|7)' 			[0x0b00 resolution 17-17 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(6|7)' 			[0x0a00 resolution 18-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true 											& capital ~ '(6|7)' 			[0x0100 resolution 24-24]
+
+#Continue on smaller cities
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 25000									[0x0b00 resolution 17-17 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 25000	 								[0x0a00 resolution 18-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 25000	 								[0x0900 resolution 20-24]
+
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 10000									[0x0a00 resolution 18-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 10000	 								[0x0900 resolution 20-24]
+
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 5000								 		[0x0b00 resolution 18-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 5000	 									[0x0a00 resolution 20-24]
+
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 1000								 		[0x0b00 resolution 18-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 1000	 									[0x0a00 resolution 20-24
+]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 250								 		[0x0b00 resolution 18-22 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true & jbmpopulation >= 250	 									[0x0a00 resolution 24-24]
+
+#No jbmpopulation specified, not a capital, could be rather big or very small, choose in between visibility
+#place = city & mkgmap:area2poi != true & jbmpopulation != * {set dbgmsginfo = 'city without population' ; set dbgcategory = 'population improvement'}
+#place = town & mkgmap:area2poi != true	& jbmpopulation != * {set dbgmsginfo = 'town without population' ; set dbgcategory = 'population improvement'}
+place ~ '(city|town)' & mkgmap:area2poi != true																		 			[0x0b00 resolution 18-18 continue]
+place ~ '(city|town)' & mkgmap:area2poi != true																		 			[0x0a00 resolution 20-24]
+
+#Small villages (Grey)
+place = village & tourism != attraction																									[0x0d00 resolution 20-22 continue]
+place = village & tourism != attraction																									[0x0c00 resolution 24-24]
+
+place ~ '(hamlet|isolated_dwelling)' & mkgmap:area2poi != true	 													[0x0d00 resolution 22-22 continue]
+place ~ '(hamlet|isolated_dwelling)' & mkgmap:area2poi != true	 													[0x0c00 resolution 24-24]
+
+place ~ '(locality|farm)' & !(tourism = attraction | historic = archaeological_site)	& mkgmap:area2poi = true		[0x0d00 resolution 22-22 continue]
+place ~ '(locality|farm)' & !(tourism = attraction | historic = archaeological_site)														[0x0c00 resolution 24-24]
+
+#City parts
+place = suburb																																		[0x0d00 resolution 20-22 continue]
+place = suburb 																																		[0x0c00 resolution 24-24]
+place ~ '(neighbourhood|quarter)'													 														[0x0d00 resolution 24]
+
+#Names for squares and other areas
+place = square & amenity != *							 																												[0x1e03 resolution 22-24]
+highway ~ '(pedestrian|footway|path|residential)' & name = * 			& mkgmap:cache_area_size > 100 						[0x1e03 resolution 22-24]
+landuse = residential & mkgmap:area2poi = true & name = * 																						[0x0b00 resolution 22-24]
+
+#Islands
+place = island & mkgmap:area2poi = true & jbmareasizepoi <= 16 									[0x1e02 resolution 16-18 continue] 		#Small font
+place = island & mkgmap:area2poi = true & jbmareasizepoi <= 20 									[0x1500 resolution 20-22]						#Large font
+place = island & mkgmap:area2poi = true																			[0x1e02 resolution 20]							#Small font
+place ~ '(island|islet)'																 												[0x1e02 resolution 24]
+
+#Natural regions (De Kempen, Mountains etc.)
+place = region 																														[0x6612 resolution 18-18 continue]
+place = region 																														[0x1e01 resolution 20-22]
+
+#Political regions (Provinces)
+place = state 																															[0x1e00 resolution 16-18]
+
+#Countries
+place = country & population >1000000 																				[0x1400 resolution 12-18]
+place = country 																														[0x1400 resolution 17-20]
+
+#Some countries have both regions and provinces introducing an extra admin border layer (4 and 6) (different from place = region !)
+boundary = administrative & mkgmap:area2poi = true & admin_level = 2   															[0x1400 resolution 15-20]	#Faroe Islands / Isle of Man
+boundary = administrative & mkgmap:area2poi = true & admin_level = 4	& 	mkgmap:country ~ '(BEL|FRA)' 	[0x0500 resolution 16-20]
+boundary = administrative & mkgmap:area2poi = true & admin_level = 6	& 	mkgmap:country ~ '(BEL|FRA)'	[0x1e00 resolution 16-20]
+boundary = administrative & mkgmap:area2poi = true & admin_level = 5	& 	mkgmap:country ~ '(BEL|ZMB)' 	[0x0500 resolution 17-20]
+#Otherwise just admin_level 4
+boundary = administrative & mkgmap:country = DNK & admin_level = 4 			{set name = '${name|subst:"(Region |region )~>"}'}					#Denmark, remove the suffix Region
+boundary = administrative & mkgmap:area2poi = true & admin_level = 4																	[0x1e00 resolution 16-20]
+
+#Historic
+#=======================================================================================
+historic = museum 																										[0x680b resolution 22-22 continue]		#tourism = museum before historic = archaeological_site , see also tourism=museum
+historic = museum																										[0x2c02 resolution 24]
+historic = archaeological_site  																					[0x2d02 resolution 24]
+(historic = wayside_cross | man_made = cross) & tourism != attraction					[0x2c15 resolution 24]								#Tourism  = attraction before cross
+historic = wayside_shrine 																							[0x2c16 resolution 24]
+military = bunker 																										[0x6602 resolution 24]
+historic = memorial & memorial ~ '(plaque|blue_plaque)'											[0x2c18 resolution 24]								#Memorials go before tourism = attraction
+historic = memorial & memorial = statue																	[0x2c19 resolution 24]								#See also tourism =artwork
+historic = memorial & memorial = buste																	[0x2d00 resolution 24]
+historic = memorial & memorial = stone																	[0x2c1f resolution 24]
+(historic = memorial & memorial = obelisk) | man_made = obelisk 						[0x3009 resolution 22]
+historic = memorial																										[0x2c17 resolution 24] 								#Memorial = stele, memorial = *
+historic = monument																									[0x2f1a resolution 24]								#Monument before tourism = attraction
+
+#Historic - castle & palace
+#=======================================================================================
+historic = fort																												[0x6801 resolution 22]
+historic = castle & castle_type ~ '(stately|palace)'														[0x6803 resolution 22]
+(historic = castle & castle_type = manor) | historic = manor										[0x6804 resolution 22]
+historic = castle & castle_type  ~ '(defensive|fortress|castrum|shiro|kremlin)'			[0x6805 resolution 22]
+historic = castle 																											[0x6802 resolution 22]		#Empty or oder catseltypes
+historic = city_gate 																										[0x6806 resolution 22]
+
+historic = ruins & tourism != attraction & name = *	& mkgmap:option:jbmoptionpersonal = true		[0x6513 resolution 24]
+historic = boundary_stone 											& mkgmap:option:jbmoptionpersonal = true		[0x2c18 resolution 24]								#Personal feature
+
+#Entrances - show nothing if housenumber is available at that spot
+#=======================================================================================
+#If access = private then light border instead of dark border (not yet implemented)
+#If housenumber is available osm shows the housenumber instead of the symbol, for garmin devices housenumbers is too cluttered anyway,  so better don't show anything in that case
+(entrance = * & indoor = yes) 																				{deletealltags}
+(entrance = main) & (access ~ '(permissive|yes)') 													& addr:housenumber != *		[0x2d11 resolution 24]		#Dark
+(entrance = main) 																									& addr:housenumber != *		[0x2d10 resolution 24]		#Light
+(entrance = yes | entrance = home | entrance = service | entrance = staircase ) 	& addr:housenumber != *		[0x2d12 resolution 24]		#Open
+
+#Office
+#=======================================================================================
+diplomatic ~ '(embassy|consulate)'	& country = * {set name = '${country} ${name|def:}'}
+office = diplomatic & diplomatic ~ '(embassy|consulate)'												[0x5004 resolution 22-22 continue] #Different from 0.2f1b because otherwise not visible at lower zoom
+office = diplomatic & diplomatic = 'embassy'																[0x5a08 resolution 24]
+office = diplomatic & diplomatic = 'consulate'																[0x5a09 resolution 24]
+
+(name = * | addr:housename = *) 											{set jbmnamehelper = '${name}' | '${addr:housename}'} 	
+office = * & !(office ~ '(no|vacant|closed|disused|empty)') 	& jbmnamehelper = * {name '${jbmnamehelper}'} [0x2f1b resolution 24]
+building = * & mkgmap:area2poi = true								& jbmnamehelper = * {name '${jbmnamehelper}'} [0x6100 resolution 24]
+building = * & amenity != *													& jbmnamehelper = * {name '${jbmnamehelper}'} [0x6100 resolution 24]
+
+#Left overs
+#=======================================================================================
+man_made = bridge 																& jbmnamehelper = * {name '${jbmnamehelper}'} [0x1e03 resolution 24]
+advertising = column																														 		[0x2b04 resolution 24]
+emergency = phone 																																[0x2f13 resolution 24]													
+#Tourism attraction if not yet already rendered for anything else display as purple lable
+tourism = attraction & name = *																											[0x3c01 resolution 24]
+
+dbgtrace = true & mkgmap:option:jbmoptiondebug = true  {echotags 'debug - points - body end'}
+
+<finalize>
+#=======================================================================================
+# The finalizer section is executed for each element when a rule with an element type matches
+dbgtrace = true {echotags 'debug - points - finalize start'}
+
+if (jbmroutable = true) then
+	include 'access';
+end
+
+#Naming
+if (mkgmap:option:jbmoptionpersonal = true & mkgmap:admin_level4 = 'Région de Bruxelles-Capitale - Brussels Hoofdstedelijk Gewest') then
+	#Changing names of brussels region to dutch
+	name:nl = * { set name = '${name:nl}' }
+	name:nl = * & name:fr = * {set jbmnamehelper = '$(name:fr) - $(name:nl)'}
+	name = jbmnamehelper { set name = '${name:nl}' }
+	name:nl = * & name:fr = * {set jbmnamehelper = '$(name:nl) - $(name:fr)'}
+	name = jbmnamehelper { set name = '${name:nl}' }
+end
+
+name = * {name '${name}' ; delete jbmnamehelper}
+
+#Debug logging
+#===================================================================================
+dbglevel = custom 																																														{set jbmecho = true}
+dbglevel = error 		& (dbgmsgcustom = * | dbgmsgerror = *)																												{set jbmecho = true}
+dbglevel = warning & (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = *)																			{set jbmecho = true}
+dbglevel = info		& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *)												{set jbmecho = true}
+dbglevel = verbose	& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *|  dbgmsgverbose = *)				{set jbmecho = true}
+jbmecho = true {set jbmdbgmsg = '$(dbgmsgcustom)' | '$(dbgmsgerror)' | '$(dbgmsgwarning)' | '$(dbgmsginfo)' | '$(dbgmsgverbose)'}
+jbmecho = true {set dbgcategory = '$(dbgcategory)' | '$(dbglevel)' ; delete jbmecho ; echotags '$(dbgcategory)'}
+dbgtrace = true {echotags 'debug - trace - points - finalize end'}
+

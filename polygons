@@ -1,0 +1,542 @@
+﻿#=======================================================================================
+#Jorisbo@hotmail.com
+#Versioning see info.txt
+#
+#Best viewed in notepad++ syntax C# with font Segoe ui 10 / (Settings/style-configurator/default-style)
+#Lines are processed before polygons
+#=======================================================================================
+#Possible style-options for mkgmap build argument:  --style-option=
+#			jbmoptionpersonal=true				Adds via ferrata and ruins
+#          jbmoptionbicycle=true					Adds additional collored overlays for bicycle routes and node network points
+#          jbmoptionhiking=true					Adds additional collored overlays for hiking routes and node network points
+#			jbmoptionfixme=true					Adds symbols for osm fixme requests
+#			jbmoptiondebug=true					Includes extra debugging echo's to log
+#=======================================================================================
+#Temporary debug en testing
+#=======================================================================================
+mkgmap:option:jbmoptiondebug = * {set dbglevel = '$(mkgmap:option:jbmoptiondebug)'}
+dbgtrace = true {echotags 'debug - polygons - body start'}
+#=======================================================================================
+	
+#dbglevel = custom {set line9 = 'jbmareasize=$(jbmareasize)' | empty}
+#name ~ '(Lycklemabosch|De Starnuman Bossen)' {set dbglevel = custom}
+#landuse = forest & osmid() = 84430431 {set dbglevel = custom}
+#name = 'Nieuwlandsreid'  {set dbglevel = custom ; set dbgtrace = true}
+#landuse = grass  & osmid() = 415297675 {set dbgtrace = true}
+
+#=======================================================================================
+#BEGIN
+#=======================================================================================
+#This sections must be in both lines and polygons in order to work properly
+mkgmap:cache_area_size >= 0					{set jbmareasize = 24 ; set jbmfontsize = small}
+mkgmap:cache_area_size >= 2500				{set jbmareasize = 22}
+mkgmap:cache_area_size >= 25000			{set jbmareasize = 20}
+mkgmap:cache_area_size >= 125000			{set jbmareasize = 18 ; set jbmfontsize = normal}
+mkgmap:cache_area_size >= 2000000		{set jbmareasize = 16 ; set jbmfontsize = large}
+mkgmap:cache_area_size >= 25000000		{set jbmareasize = 14}
+
+#Calculate address info from the boundary processor, this calculates the mkgmap:city field which then can be used in the name value
+#=======================================================================================
+include 'inc/address';
+
+#Buildings, render first because always visible which makes it easier for the rest of the rules
+#=======================================================================================
+building = no {delete building}
+building = * & name !=* & building != yes {name '$(name)' | '$(building)'}					#Set name to type of building if available so you can tooltip this info. Real building names already got a poi in the poi file
+(public_transport = station | aerialway = station) & location != underground & railway != proposed & amenity != bus_station				[0x6a resolution 22]		#Exclude proposed and bus_station
+building = train_station 																																													[0x6a resolution 22]		#Even if underground it is rendered !
+amenity = place_of_worship & building = * 																												[0x5f resolution 22]
+aeroway = terminal 																																					[0x3b resolution 22]
+building = * & area_size() > 100 																																[0x13 resolution 22]
+building = * 	 	 	 																																					[0x13 resolution 24]
+
+#National park (Green background on low zoomareas
+#=======================================================================================
+#boundary	= 	national_park 														& building != *	{set boundary = nature_reserve}
+#boundary	= 	protected_area & protect_class ~ '([1-6]|1[a|b])'	& building != *	{set boundary = nature_reserve}
+#leisure			=		nature_reserve 														& building != *	{set boundary = nature_reserve ; delete leisure}
+
+#boundary	 	= nature_reserve & is_in(natural, sea, any) = false & jbmareasize = 14 											[0x48 resolution 14-18 continue]	
+#boundary	 	= nature_reserve & is_in(natural, sea, any) = false & jbmareasize = 16 											[0x48 resolution 16-18 continue]
+#boundary	 	= nature_reserve & is_in(natural, sea, any) = false & jbmareasize = 18 											[0x48 resolution 18-18 continue]
+
+#Don't render underground features. For metro & subway elements see railway
+#=======================================================================================
+amenity = * & amenity != recycling & location = underground 	{delete amenity}
+military = * & location = underground 											{delete military}
+
+#man_made
+#========================================================
+man_made = pier & highway != * & jbmareasize = 20					[0x49 resolution 20]
+man_made = pier & highway != * & jbmareasize = 22					[0x49 resolution 22]
+man_made = pier & highway != * 													[0x49 resolution 24]
+man_made ~ '(breakwater|groyne)'												[0x23 resolution 22]
+man_made = bridge & highway != pedestrian								[0x39 resolution 22]		#Same as waterway = dam
+
+#Powerplant before landuse
+power ~ '(substation|plant)' 	& natural != wood  & landuse != forest & jbmareasize <=20							[0x10 resolution 16-18 continue]
+power ~ '(substation|plant)' 	& natural != wood  & landuse != forest 															[0x7e resolution 20]
+power ~ '(generator)' 			& natural != wood  & landuse != forest & !(is_in(power, plant, all) = true)		[0x7e resolution 22]
+
+#Aeroways
+#=======================================================================================
+aeroway ~ '(aerodrome|airport)' & landuse != military  					[0x10 resolution 14-18 continue]
+aeroway ~ '(aerodrome|airport)' & landuse != military  					[0x07 resolution 20]
+aeroway ~ '(helipad|runway|taxiway)' 												[0x7f resolution 22]
+aeroway = apron 																				[0x3a resolution 20]
+
+#Highways, Platforms, Squares and Plazas before Leisure
+#=======================================================================================
+highway ~ '(pedestrian|footway|path)' & leisure != track										 			[0x0e resolution 22]
+highway =  service & area = yes																						[0x62 resolution 22] 		#Removed exclusion for private and no : https://www.openstreetmap.org/#map=18/51.00845/4.45476
+highway ~ '(services|rest_area)' 																							[0x1c resolution 22]
+
+#Platform after highway = footway	https://www.openstreetmap.org/#map=19/48.17176/11.26121
+railway = platform & (man_made != pier | tunnel ~ '(yes|building_passage)' | covered = yes | location = underground) 		{name '$(name)' | '$(ref)'} [0x6d resolution 22]
+highway = platform 																																									{name '$(name)' | '$(ref)'} [0x6d resolution 22]
+
+#Military
+#=======================================================================================
+landuse = military & jbmareasize <= 16		[0x04 resolution 16-20 continue]
+landuse = military & jbmareasize = 18			[0x04 resolution 18-20 continue]
+landuse = military & jbmareasize = 20			[0x04 resolution 20-20 continue]
+landuse = military  											[0x01 resolution 22-24 continue]
+military = danger_area & leisure != * 			[0x60 resolution 22]
+military = barracks & landuse != military 		[0x13 resolution 22]
+building = barracks 										[0x13 resolution 22]
+
+#Amenity before leisure
+#=======================================================================================
+#(amenity ~ '(college|school|kindergarten)' | area = school)  & is_in(landuse, residential, all) = false		[0x10 resolution 20-20 continue]
+#(amenity ~ '(college|school|kindergarten)' | area = school) 																			[0x0a resolution 22]
+#amenity = university 	& jbmareasize <=18	 & is_in(landuse, residential, all) = false								 	[0x10 resolution 18-18 continue]
+#amenity = university 																																			[0x09 resolution 20]
+
+(amenity ~ '(university|college|school|kindergarten)' | area = school) & is_in(landuse, residential, all) = false & jbmareasize <=18		[0x10 resolution 18-18 continue]
+(amenity ~ '(university|college|school|kindergarten)' | area = school) & is_in(landuse, residential, all) = false											[0x10 resolution 20-20 continue]
+(amenity ~ '(university|college|school|kindergarten)' | area = school) & is_in(landuse, '*', all) = true															[0x09 resolution 22]
+(amenity ~ '(university|college|school|kindergarten)' | area = school) & is_in(leisure, '*', all) = true															[0x09 resolution 22]
+(amenity ~ '(university|college|school|kindergarten)' | area = school) 																											[0x0a resolution 22]
+
+amenity = arts_centre 																																		[0x24 resolution 22]
+amenity = community_centre 																															[0x0b resolution 22]
+amenity = social_facility 																																		[0x0b resolution 22]
+
+amenity ~ '(parking|bicycle_parking|motorcycle_parking|taxi|prison|place_of_worship|marketplace|ferry_terminal|bus_station|fire_station|police)'	& jbmareasize <=18		[0x10 resolution 18-18 continue]
+amenity ~ '(parking|bicycle_parking|motorcycle_parking|taxi|prison|place_of_worship|marketplace|ferry_terminal|bus_station|fire_station|police)'	& jbmareasize <=22		[0x10 resolution 20-20 continue]
+amenity ~ '(parking|bicycle_parking|motorcycle_parking|taxi)' & !(parking = underground)		[0x05 resolution 22]
+amenity = prison		 																														[0x26 resolution 22]
+amenity = place_of_worship 																											[0x08 resolution 22]
+amenity = marketplace 																													[0x5e resolution 22]
+amenity = ferry_terminal 																												[0x69 resolution 22]
+amenity = bus_station 																													[0x6b resolution 22]
+amenity ~ '(fire_station|police)' 																										[0x2f resolution 22]
+
+#Healthcare
+#=======================================================================================
+#Todo: Larger healtcare at level 18 should be visible as landuse residential if not yet within a residential area to nicely color the big cities grey
+(healthcare = hospital | amenity ~ '(hospital|clinic)')  & jbmareasize >= 16	& is_in(landuse, residential, all) = false				[0x10 resolution 17-18 continue]
+(healthcare = hospital | amenity ~ '(hospital|clinic)')  & jbmareasize = 18	& is_in(landuse, residential, all) = false				[0x10 resolution 18-18 continue]
+(healthcare = hospital | amenity ~ '(hospital|clinic)')  																												[0x0b resolution 20]
+(healthcare = * | amenity = dentist)	 																																		[0x0b resolution 22]
+ 
+#Natural before landuse
+#=======================================================================================
+natural = sea 								[0x32 resolution 13]
+natural = reef 							[0x47 resolution 22]
+
+#Salt_pond is mostly an overlay on water areas but not together with intermittent or wetland overlay.
+landuse = salt_pond {set jbmintermittent = false}
+landuse = salt_pond & natural != *   			{set natural = water}	#Test for existence of natural tag, if tag does not exist implicit to water else use whatever natural as background
+landuse = salt_pond & natural = sand 		{set natural = water}	#48.09311, 13.56762
+landuse = salt_pond & natural = wetland 	{delete wetland ; delete natural}
+landuse = salt_pond 	[0x42 resolution 20 continue]
+
+#Beach can be background or with a sandy overlay, if also tagged with leisure = recreation_ground then skip and render leisure instead
+#If leisure = beach_resort then the beach is rendered, so its not just excluding all leisure
+#Already tested: natural = scrub & natural = wetland do not come with surface
+#If surface = stone and natural = beach then nothing is rendered, if surface is pebblestone then only the pebblestone is rendered
+#New insight: if rendered on land then yellow background if rendered in sea not
+#https://www.openstreetmap.org/#map=17/60.42582/-0.7448
+if (natural ~ '(beach|shoal)' & !(leisure = recreation_ground) & !(seamark:type = *) ) then
+	surface ~ '(gravel|fine_gravel|pebbles|pebblestone|shingle|shells|stones)'	[0x21 resolution 22 continue]		#Rocky overlay
+	surface = sand 																								[0x20 resolution 24 continue]		#Sandy overlay
+	is_in(natural, sea , all) = false & jbmareasize = 14										[0x2e resolution 14]						#Yellow background
+	is_in(natural, sea , all) = false & jbmareasize = 16										[0x2e resolution 16]
+	is_in(natural, sea , all) = false & jbmareasize = 18										[0x2e resolution 18]
+	is_in(natural, sea , all) = false & jbmareasize = 20										[0x2e resolution 20]
+	is_in(natural, sea , all) = false & jbmareasize = 22										[0x2e resolution 22]
+	is_in(natural, sea , all) = false																			[0x2e resolution 24]
+end
+
+#Sand as background and overlay. The overlay should always be there the backround is not
+#20200318 v5.00 Removed overlay :     natural = sand  									[0x20 resolution 22 continue]
+
+if (natural = sand & !(is_in(natural,sea,all) = true)) then
+	landuse != * & !(leisure ~ '(pitch|playground)')  & jbmareasize = 14			[0x5c resolution 14]
+	landuse != * & !(leisure ~ '(pitch|playground)')  & jbmareasize = 16 			[0x5c resolution 16]
+	landuse != * & !(leisure ~ '(pitch|playground)')  & jbmareasize = 18 			[0x5c resolution 18]
+	landuse != * & !(leisure ~ '(pitch|playground)')  & jbmareasize = 20 			[0x5c resolution 20]
+	landuse != * & !(leisure ~ '(pitch|playground)')  & jbmareasize = 22 			[0x5c resolution 22]
+	landuse != * & !(leisure ~ '(pitch|playground)') 	 										[0x5c resolution 24]
+end
+
+natural = glacier &  jbmareasize = 14				[0x4d resolution 14]
+natural = glacier &  jbmareasize = 16				[0x4d resolution 16]
+natural = glacier &  jbmareasize = 18				[0x4d resolution 18]
+natural = glacier &  jbmareasize = 20				[0x4d resolution 20]
+natural = glacier &  jbmareasize = 22				[0x4d resolution 22]
+natural = glacier 												[0x4d resolution 24]
+
+natural = heath & is_in(landuse, grass, all) = true								{add jbheathontop = true}
+natural = heath & is_in(natural, wetland, all) = true								{add jbheathontop = true}
+natural = heath & jbmareasize = 24														{add jbheathontop = true}
+natural = heath & jbheathontop = true	&  jbmareasize <= 16			[0x48 resolution 14-16 continue]
+natural = heath & jbheathontop = true	&  jbmareasize <= 18			[0x71 resolution 18]
+natural = heath & jbheathontop = true	&  jbmareasize = 20			[0x71 resolution 20]
+natural = heath & jbheathontop = true	&  jbmareasize = 22			[0x71 resolution 22]
+natural = heath & jbheathontop = true												[0x71 resolution 24]
+natural = heath 											&  jbmareasize <= 16			[0x48 resolution 14-16 continue]
+natural = heath											&  jbmareasize <= 18			[0x2b resolution 18]
+natural = heath											&  jbmareasize = 20			[0x2b resolution 20]
+natural = heath											&  jbmareasize = 22			[0x2b resolution 22]
+natural = heath																						[0x2b resolution 24]
+
+natural ~'(scree|shingle)' 																		[0x21 resolution 18 continue]
+natural ~'(scree|shingle)' 	&  jbmareasize <= 16									[0x48 resolution 14-16 continue]
+natural ~'(scree|shingle)' 	&  jbmareasize <= 18									[0x7a resolution 18]
+natural ~'(scree|shingle)' 	&  jbmareasize = 20									[0x7a resolution 20]
+natural ~'(scree|shingle)' 	&  jbmareasize = 22									[0x7a resolution 22]
+natural ~'(scree|shingle)'																			[0x7a resolution 24]
+
+if (natural = bare_rock & !(is_in(natural, sea, all) = true)) then
+	natural = bare_rock &  jbmareasize <= 16											[0x63 resolution 16 continue]
+	natural = bare_rock &  jbmareasize <= 16											[0x25 resolution 16]
+	natural = bare_rock &  jbmareasize = 18											[0x63 resolution 18 continue]
+	natural = bare_rock &  jbmareasize = 18											[0x25 resolution 18]
+	natural = bare_rock &  jbmareasize = 20											[0x7b resolution 20 continue]
+	natural = bare_rock &  jbmareasize = 20											[0x7a resolution 20]
+	natural = bare_rock &  jbmareasize = 22											[0x7b resolution 22 continue]
+	natural = bare_rock &  jbmareasize = 22											[0x7a resolution 22]
+	natural = bare_rock 																			[0x7b resolution 24 continue]
+	natural = bare_rock 																			[0x7a resolution 24]
+end
+
+natural = scrub 																									[0x4f resolution 22 continue]														#Transparent overlay with scrub symbol
+natural = scrub & leisure != park & jbmareasize <= 18 									[0x48 resolution 16-18 continue]												#Low zoomlevels
+natural = scrub & leisure != park & (is_in(leisure, golf_course, any) = true | is_in(landuse, industrial, any) = true | is_in(leisure, pitch, any) = true | is_in(power, plant, any)	=true) [0x44 resolution 20]
+natural = scrub & leisure != park & jbmareasize <= 20									[0x43 resolution 20]
+natural = scrub & leisure != park & jbmareasize = 22										[0x43 resolution 22]
+natural = scrub & leisure != park 																		[0x44 resolution 24]
+
+#Natural-wetland
+#=======================================================================================
+wetland = * & !(wetland ~ '(marsh|saltmarsh|reedbed|fen|bog|string_bog|wet_meadow|swamp|mangrove|tidalflat)') {delete wetland}
+
+#Tidal areas have different colors on land and sea. When overlapping land and sea i cannot make the difference and choose for sea as the most comon
+(natural = mud | (natural = wetland & wetland = tidalflat) )				{set jbmmud = true}	[0x51 resolution 20 continue with_actions]			#Overlay, use with_actions to keep the jbmmud value
+if (jbmmud = true & (is_in(natural, sea, any) = true | is_in(natural, water, any) = true)) then
+	jbmareasize <= 18													[0x3f resolution 18]
+	jbmareasize = 20														[0x3f resolution 20]
+	jbmareasize = 22														[0x3f resolution 22]
+	()																				[0x3f resolution 24]
+end
+if (jbmmud = true) then
+	jbmareasize <= 18													[0x4c resolution 18]
+	jbmareasize = 20														[0x4c resolution 20]
+	jbmareasize = 22														[0x4c resolution 22]
+	()																				[0x4c resolution 24]
+end
+
+#First set background in grass, sand, woods or sea
+if (natural = wetland & !(waterway = riverbank) & !(is_in(natural,sea,any) = true)) then 
+	wetland ~ '(marsh|saltmarsh|wet_meadow|reedbed|fen|swamp)' & jbmareasize <= 18		[0x48 resolution 15-18 continue]	#Greencolor zoom
+	wetland ~ '(marsh|saltmarsh|wet_meadow|reedbed|fen)' & jbmareasize <= 22					[0x41 resolution 20 continue]			#Grasscolor		low draworder
+	wetland ~ '(marsh|saltmarsh|wet_meadow|reedbed|fen)' & !(jbmareasize = *)					[0x41 resolution 20 continue]			#Grasscolor		low draworder
+	wetland ~ '(marsh|saltmarsh|wet_meadow|reedbed|fen)'														[0x2c resolution 20 continue]			#Grasscolor		high draworder
+	wetland ~ '(bog|string_bog)'				 																					[0x2b resolution 20 continue]			#Heathcolor
+	wetland = swamp & jbmareasize <= 18																				[0x50 resolution 18 continue]			#Forestcolor
+	wetland = swamp 																													[0x50 resolution 20 continue]			#Forestcolor
+end
+if (natural = wetland) then
+	(waterway = riverbank | is_in(natural,sea,any) = true)	& jbmareasize <= 18						[0x3e resolution 15-18 continue]	#Watercolor
+	(waterway = riverbank | is_in(natural,sea,any) = true)	& jbmareasize <= 22						[0x3e resolution 20 continue]
+	waterway = riverbank																												[0x3e resolution 20 continue]
+end
+
+#If wetland only and nothing else then quit here
+natural = wetland & !(wetland = *) & !(landuse = *) 	& jbmareasize <= 14							[0x51 resolution 14-15 continue]
+natural = wetland & !(wetland = *) & !(landuse = *) 	& jbmareasize <= 16							[0x51 resolution 16-17 continue]
+natural = wetland & !(wetland = *) & !(landuse = *) 	& jbmareasize <= 18							[0x51 resolution 18-18 continue]
+natural = wetland & !(wetland = *) & !(landuse = *) 																[0x51 resolution 20]
+
+#If optional combined with types of wetland or backrgound continue with overlay
+natural = wetland	& jbmareasize <= 14									  												[0x51 resolution 14-15 continue]
+natural = wetland	& jbmareasize <= 16								  													[0x51 resolution 16-17 continue]
+natural = wetland	& jbmareasize <= 18								  													[0x51 resolution 18-18 continue]
+natural = wetland												  																		[0x51 resolution 20-20 continue]	#To be investigated double x51 and x52 on next line is strange 
+
+#On higher zoomlevels use double colored layers, so add an extra on top of 0x51
+natural = wetland												 																		[0x52 resolution 22-24 continue]
+natural = wetland & wetland ~ '(marsh|saltmarsh)'					 												[0x53 resolution 22-24]
+natural = wetland & wetland ~ '(wet_meadow|reedbed)'															[0x54 resolution 22-24]
+natural = wetland & wetland = bog 																							[0x55 resolution 22-24]
+natural = wetland & wetland = swamp 																						[0x36 resolution 22-24]	#Was 0x56 but i think is changed by mapnik
+natural = wetland & wetland = mangrove 																				[0x57 resolution 22-24]
+
+#End with general wetland (later on also landuse could be added)
+#20170904 JB: Continue should at least be applied when landuse = forest (N50° 36.075' E6° 17.162') or landuse = meadow (54.70682, 18.6465) but probably for more landuse = * situations as well
+#20171011 JB: But not for quarry (N58° 53.434' E30° 54.736')
+natural = wetland & landuse = * & landuse != quarry 																								[0x51 resolution 20 continue]
+
+#Natural-water
+#=======================================================================================
+waterway 	= dock 														{set natural = water}
+waterway		= riverbank 													{set natural = water ; set jbmwater_noname = true}
+natural			= water & amenity = fountain 					{set jbmwater_noname = true}
+natural			= water & water ~ '(pond|river)'					{set jbmwater_noname = true}		#For pond, name is set as poi derived from area, river is treated as riverbank 
+natural			= water & leisure = marina							{set jbmwater_noname = true}		#For marina, name is set as poi derived from area 
+waterway		= waterfall 													{set natural = water}
+natural 		= waterfall 													{set natural = water}
+landuse 		~ '(basin|reservoir)' 									{set natural = water}
+
+intermittent = yes | basin ~'(detention|infiltration)' | seasonal ~ '(spring|summer|autumn|winter|wet_season|dry_season)' 			{add jbmintermittent = true}
+
+jbmwater_noname = true & leisure != water_park & jbmintermittent != true & jbmareasize = 14		[0x3e resolution 14]
+jbmwater_noname = true & leisure != water_park & jbmintermittent != true & jbmareasize = 16		[0x3e resolution 16]
+jbmwater_noname = true & leisure != water_park & jbmintermittent != true & jbmareasize = 18		[0x3e resolution 18]
+jbmwater_noname = true & leisure != water_park & jbmintermittent != true & jbmareasize = 20 		[0x3e resolution 18]
+jbmwater_noname = true & leisure != water_park & jbmintermittent != true & jbmareasize = 22 		[0x3e resolution 20]
+jbmwater_noname = true & leisure != water_park & jbmintermittent != true  										[0x3e resolution 22]
+
+natural = water & jbmintermittent = true & jbmareasize = 14						[0x46 resolution 14]
+natural = water & jbmintermittent = true & jbmareasize = 16 					[0x46 resolution 16]
+natural = water & jbmintermittent = true & jbmareasize = 18 					[0x46 resolution 18]
+natural = water & jbmintermittent = true & jbmareasize = 20 					[0x46 resolution 20]
+natural = water & jbmintermittent = true & jbmareasize = 22  					[0x46 resolution 22]
+natural = water & jbmintermittent = true 														[0x46 resolution 24]
+
+natural = water & leisure != water_park & jbmareasize = 14 						[0x3e resolution 14]   		#Very big areas, give them a name
+natural = water & leisure != water_park & jbmareasize = 16 						[0x3c resolution 17]		#Name from  17
+natural = water & leisure != water_park & jbmareasize ~ '(18|20)' 				[0x3e resolution 18]		#No name on 18, places need to take priority
+natural = water & leisure != water_park & jbmareasize = 22 						[0x3c resolution 20]
+natural = water & leisure != water_park 														[0x3e resolution 22-22 continue]
+natural = water & leisure != water_park 														[0x3c resolution 24]
+
+#Landuse before man_made
+#=======================================================================================
+#20170906 JB: Excluding layer for landuse = commercial is ambigious (N52° 17.800' E4° 44.580')
+landuse = commercial & highway != * & power != * & layer != * & jbmareasize <= 20	 & is_in(landuse, residential, all) = false 		[0x10 resolution 16-18 continue] 	#Show as dark grey residential if not already in residential
+landuse = commercial & highway != * & power != * & layer != *												[0x22 resolution 20]
+
+landuse = religious 																														[0x66 resolution 22]
+landuse = farmyard 							  																							[0x5b resolution 22]
+landuse = farmland 																														[0x4e resolution 18]
+landuse = greenhouse_horticulture 																								[0x4e resolution 18]
+
+(landuse = retail | shop = mall) & !(highway = * | location = underground | building = *) & is_in(landuse, residential, all) = false	[0x10 resolution 18-18 continue]
+(landuse = retail | shop = mall) & !(highway = * | location = underground | building = *) & is_in(landuse, residential, all) = false	[0x03 resolution 20-20 continue]
+(landuse = retail | shop = mall) & !(highway = * | location = underground | building = *) 																	[0x5e resolution 22]
+
+(man_made = wastewater_plant | man_made = water_works | landuse = industrial)											{set jbindustrial = yes}
+jbindustrial = yes 																				& is_in(landuse, quarry, all) = true			[0x68 resolution 20]
+jbindustrial = yes 																				& is_in(landuse, farmland, all) = true		[0x68 resolution 20]
+
+jbindustrial = yes & amenity != prison & jbmareasize <= 22	  	& is_in(landuse, residential, all) = false			[0x10 resolution 16-18 continue]		#Show as dark grey residential if not already in residential
+jbindustrial = yes & amenity != prison & jbmareasize <= 20																				[0x0c resolution 20]
+jbindustrial = yes & amenity != prison & jbmareasize = 22																					[0x0c resolution 22]
+jbindustrial = yes & amenity != prison 	 																												[0x0c resolution 24]
+
+(landuse = railway | railway = station) & jbmareasize <= 22	& is_in(landuse, residential, all) = false				[0x10 resolution 16-18 continue]		#Show as dark grey residential if not already in residential
+(landuse = railway | railway = station) & jbmareasize <= 20																				[0x0c resolution 20]
+(landuse = railway | railway = station) & jbmareasize = 22																					[0x0c resolution 22]
+(landuse = railway | railway = station)																													[0x0c resolution 24]
+
+#landuse=grass before leisure=park https://www.openstreetmap.org/#map=18/52.31348/4.82533
+#landcover=grass is different https://www.openstreetmap.org/#map=19/51.17538/4.52384
+#Golf before landuse=grass
+#golf = rough																																		[0x21 resolution 22 continue]
+golf ~ '(rough|fairway)' & landuse != grass																						[0x2c resolution 22-24]			#Add as grass if not specified
+golf = green																																		[0x70 resolution 24]				#Pitch color
+golf = bunker																																		[0x61 resolution 24]
+
+landuse ~ '(grass|meadow|village_green)' | natural = grassland														[0x48 resolution 18-20 continue]
+landcover = grass & leisure != park																									[0x48 resolution 18-20 continue]
+landuse = meadow & (is_in(landuse, forest, all) = true | is_in(leisure, park, all) = true)					[0x2a resolution 22-24]
+landuse = meadow																																[0x41 resolution 22-24]
+landuse = village_green																														[0x2a resolution 22]
+landuse = village_green & area_size() > 2500																					[0x41 resolution 22]
+landuse = grass & (is_in(leisure, pitch, any) = true | is_in(power, '*', any) = true | is_in(amenity, parking, any) = true | is_in(landuse, forest, any) = true | is_in(landuse, retail, any) = true)					[0x2a resolution 22-24]
+landuse = grass & area_size() < 200																									[0x2a resolution 24]			#Small pieces of grass as village_green with higher draworder
+landuse = grass  																																	[0x2c resolution 22-24]
+landcover = grass & leisure != park & area_size() < 200																	[0x2a resolution 24]			#Small pieces of grass as village_green with higher draworder
+landcover = grass & leisure != park   																								[0x2c resolution 22-24]
+natural = grassland & !(landuse ~ '(orchard|meadow)') & ( is_in(leisure, park, any) = true | is_in(landuse, farmland, any) = true)	[0x2c resolution 22]
+natural = grassland & !(landuse ~ '(orchard|meadow)')																	[0x41 resolution 22]
+
+(natural = wood | landuse = forest) & leaf_type = mixed 																	[0x33 resolution 22 continue]
+(natural = wood | landuse = forest) & leaf_type = broadleaved 														[0x34 resolution 22 continue]
+(natural = wood | landuse = forest) & leaf_type = needleleaved 														[0x35 resolution 22 continue]
+(natural = wood | landuse = forest) & leaf_type = leafless 																[0x37 resolution 22 continue]
+(natural = wood | landuse = forest) & leaf_type != * 																		[0x36 resolution 22 continue]
+
+#At least show all forest at 22 otherwise tree overlays get orphaned
+forest_from_relation = true	{name '${jbmname}'}
+(natural = wood | landuse = forest) & jbmareasize >= 14 																[0x48 resolution 14-15 continue]
+(natural = wood | landuse = forest) & jbmareasize >= 16																[0x48 resolution 16-18 continue]
+(natural = wood | landuse = forest) & jbmareasize = 14	  																[0x67 resolution 14]
+(natural = wood | landuse = forest) & jbmareasize = 16	  																[0x67 resolution 16]
+(natural = wood | landuse = forest) & jbmareasize = 18		  															[0x50 resolution 18]
+(natural = wood | landuse = forest) & jbmareasize = 20																	[0x50 resolution 20]
+(natural = wood | landuse = forest) & jbmareasize = 22																	[0x50 resolution 22]
+(natural = wood | landuse = forest) & is_in(leisure, pitch, any) = true												[0x58 resolution 20]
+(natural = wood | landuse = forest) & leisure != park 																		[0x58 resolution 22]
+
+landuse = allotments 																															[0x48 resolution 18-18 continue]
+landuse = allotments 																															[0x7c resolution 20]
+landuse = orchard 																																[0x48 resolution 18-20 continue]
+landuse = orchard 																																[0x5d resolution 22]
+landuse = plant_nursery 																													[0x48 resolution 18-20 continue]
+landuse = plant_nursery 																													[0x5a resolution 22]
+landuse = vineyard 																															[0x48 resolution 18-20 continue]
+landuse = vineyard 																															[0x1b resolution 20]
+
+landuse = quarry & jbmareasize = 14			 																					[0x12 resolution 14]
+landuse = quarry & jbmareasize = 16			 																					[0x12 resolution 16]
+landuse = quarry & jbmareasize = 18			 																					[0x12 resolution 18]
+landuse = quarry & jbmareasize = 20			 																					[0x12 resolution 20]
+landuse = quarry & jbmareasize = 22			 																					[0x12 resolution 22]
+landuse = quarry											 																						[0x12 resolution 24]
+
+(landuse = recreation_ground | leisure = recreation_ground) & jbmareasize = 14							[0x14 resolution 14]
+(landuse = recreation_ground | leisure = recreation_ground) & jbmareasize = 16 							[0x14 resolution 16]
+(landuse = recreation_ground | leisure = recreation_ground) & jbmareasize = 18 							[0x14 resolution 18]
+(landuse = recreation_ground | leisure = recreation_ground) & jbmareasize = 20 							[0x14 resolution 20]
+(landuse = recreation_ground | leisure = recreation_ground) & jbmareasize = 22 							[0x14 resolution 22]
+(landuse = recreation_ground | leisure = recreation_ground) 															[0x14 resolution 24]
+
+landuse = residential & name != *   {add name = '${mkgmap:city}'}	
+landuse = residential & highway != pedestrian 	& jbmareasize = 14												[0x10 resolution 14-20 continue]
+landuse = residential & highway != pedestrian 	& jbmareasize = 16												[0x10 resolution 16-20 continue]
+landuse = residential & highway != pedestrian 	& jbmareasize ~ '(18|20|22)'								[0x10 resolution 17-20 continue]
+landuse = residential & highway != pedestrian 	& is_in(landuse, farmland, all) = true				[0x02 resolution 24]
+landuse = residential & highway != pedestrian 	& jbmareasize ~ '(14|16|18|20|22)'						[0x03 resolution 22]
+landuse = residential & highway != pedestrian																					[0x02 resolution 24]
+
+landuse = garages							 																									[0x10 resolution 17-20 continue] 
+landuse = garages							 																									[0x06 resolution 22] 
+landuse = landfill 																																[0x10 resolution 17-20 continue]
+landuse = landfill 																																[0x40 resolution 22]
+
+landuse ~ '(construction|brownfield)' 																								[0x10 resolution 17-20 continue]
+landuse ~ '(construction|brownfield)' & is_in(aeroway, '*', any) = true											[0x0d resolution 22]
+landuse ~ '(construction|brownfield)' & is_in(landuse, '*', any) = true												[0x0d resolution 22]
+landuse ~ '(construction|brownfield)' & jbmareasize <= 22																[0x64 resolution 22]
+	landuse ~ '(construction|brownfield)'  																							[0x0d resolution 22]
+
+#Cemetery
+#========================================================
+(landuse ~ '(cemet[e|a]ry)' | amenity = grave_yard) & cemetery != sea {set jbmcemetery = true}
+if  (jbmcemetery = true) then
+
+religion = christian 	& jbmareasize <= 18		[0x48 resolution 18-18 continue]
+religion = christian 	& jbmareasize = 20			[0x30 resolution 20]
+religion = christian 	& jbmareasize = 22			[0x30 resolution 22]
+religion = christian 											[0x30 resolution 24]
+
+religion = jewish 		& jbmareasize <= 18		[0x48 resolution 18-18 continue]
+religion = jewish 		& jbmareasize = 20			[0x31 resolution 20]
+religion = jewish 		& jbmareasize = 22			[0x31 resolution 22]
+religion = jewish 												[0x31 resolution 24]
+
+religion = muslim 		& jbmareasize <= 18	[0x48 resolution 18-18 continue]
+religion = muslim 		& jbmareasize = 20		[0x29 resolution 20]
+religion = muslim 		& jbmareasize = 22		[0x29 resolution 22]
+religion = muslim 											[0x29 resolution 24]
+
+										jbmareasize <= 18	[0x48 resolution 18-18 continue]
+										jbmareasize <= 20	[0x1a resolution 20]
+										jbmareasize <= 22	[0x1a resolution 22]
+																	() [0x1a resolution 24]			
+end
+
+#Waterways
+#=======================================================================================
+waterway = dam & jbmareasize = 14				[0x39 resolution 14]			#Same as man_made = bridge
+waterway = dam & jbmareasize = 16				[0x39 resolution 16]
+waterway = dam & jbmareasize = 18				[0x39 resolution 18]
+waterway = dam & jbmareasize = 20				[0x39 resolution 20]
+waterway = dam & jbmareasize = 22				[0x39 resolution 22]
+waterway = dam												[0x39 resolution 24]
+
+#Leisure
+#=======================================================================================
+leisure = garden & jbmareasize <= 18																	[0x48 resolution 15-18 continue]	#Greencolor zoom
+leisure = garden & jbmareasize <= 22																	[0x41 resolution 20 continue]			#Grasscolor		low draworder
+leisure = garden 																										[0x2d resolution 22]
+
+leisure = golf_course 																								[0x48 resolution 18-20 continue]
+leisure = golf_course 																								[0x18 resolution 22]
+leisure = miniature_golf 																							[0x1d resolution 22]
+leisure = dog_park 																									[0x48 resolution 18-20 continue]
+leisure = dog_park 																									[0x1f resolution 22]
+leisure = ice_rink 																									[0x59 resolution 22]
+leisure = park & landuse != grass & jbmareasize = 14  										[0x48 resolution 14-18 continue] #Landuse=grass before leisure=park https://www.openstreetmap.org/#map=18/52.31348/4.82533
+leisure = park & landuse != grass & jbmareasize = 16  										[0x48 resolution 16-18 continue]
+leisure = park & landuse != grass & jbmareasize = 18 											[0x48 resolution 18-18 continue]
+leisure = park & landuse != grass & jbmareasize <= 20  										[0x1e resolution 20]
+leisure = park & landuse != grass & jbmareasize = 22  										[0x16 resolution 22]
+leisure = park & landuse != grass 							  												[0x16 resolution 24]
+
+leisure ~ '(sports_centre|fitness_centre|fitness_station|stadium|water_park|track)' & !(seamark:type = *) 	{set jbmsports = true}
+leisure = pitch | jbmsports = true																			{name '$(name) ($(sport|subst:_=>))' | '$(name)' | '$(sport|subst:_=> )'}
+if (leisure = pitch & !(seamark:type = *) & !(highway = pedestrian) ) then
+	surface = sand 																									[0x20 resolution 22 continue]
+	is_in(amenity, parking, any) = true																	[0x70 resolution 24]
+	is_in(landuse, grass, any) = true																		[0x70 resolution 24]
+	is_in(landuse, meadow, any) = true																	[0x70 resolution 24]
+	landuse != grass & area_size () <100																	[0x70 resolution 24]
+	landuse != grass																									[0x19 resolution 22]
+end
+leisure = track & (mkgmap:mp_created = true | area = yes)								[0x19 resolution 22]
+
+leisure = playground & area = * & area != yes {deletealltags}							#https://www.openstreetmap.org/#map=19/48.18092/11.24257
+leisure = playground & layer != -1 																		[0x6c resolution 22]
+leisure = water_park & natural = water																	[0x45 resolution 22]
+leisure = swimming_pool & covered != yes														 	[0x45 resolution 22]
+
+jbmsports = true & leisure != track & jbmareasize <= 20									[0x10 resolution 18-18 continue]
+jbmsports = true & leisure != track & jbmareasize = 20										[0x7d resolution 20]
+jbmsports = true & leisure != track & jbmareasize = 22	 									[0x7d resolution 22]
+jbmsports = true & leisure != track 																		[0x7d resolution 24]
+
+#Tourism
+#=======================================================================================
+tourism = picnic_site 											[0x6f resolution 24]
+tourism = caravan_site | tourism = camp_site 	[0x65 resolution 18]
+
+#=======================================================================================
+#END
+#=======================================================================================
+dbgtrace = true  {echotags 'debug - polygons - body end'}
+
+<finalize>
+#=======================================================================================
+#The finalizer section is executed for each element when a rule with an element type matches
+dbgtrace = true  {echotags 'debug - polygons -  finalize start'}
+
+#Fix mapping error in Yemen
+#addr:country = YE & place != * {set dbgmsgcustom = 'city yemen'; delete mkgmap:city}
+
+name = * {name '$(name)'}
+
+#Debug logging
+#===================================================================================
+dbglevel = custom 																																														{set jbmecho = true}
+dbglevel = error 		& (dbgmsgcustom = * | dbgmsgerror = *)																												{set jbmecho = true}
+dbglevel = warning & (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = *)																			{set jbmecho = true}
+dbglevel = info		& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *)												{set jbmecho = true}
+dbglevel = verbose	& (dbgmsgcustom = * | dbgmsgerror = * | dbgmsgwarning = * | dbgmsginfo = *|  dbgmsgverbose = *)				{set jbmecho = true}
+jbmecho = true {set jbmdbgmsg = '$(dbgmsgcustom)' | '$(dbgmsgerror)' | '$(dbgmsgwarning)' | '$(dbgmsginfo)' | '$(dbgmsgverbose)'}
+jbmecho = true {set dbgcategory = '$(dbgcategory)' | '$(dbglevel)' ; delete jbmecho ; echotags '$(dbgcategory)'}
+dbgtrace = true {echotags 'debug - polygons - finalize end'}
